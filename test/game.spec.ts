@@ -1,5 +1,6 @@
-import { Game, GameState, PlayerEvent } from "../src/game"
-import { Player } from "../src/players"
+import * as Game from "../src/game"
+import { GameState, PlayerEvent } from "../src/game"
+import * as Player from "../src/players"
 
 describe("game", () => {
   describe("On Start", () => {

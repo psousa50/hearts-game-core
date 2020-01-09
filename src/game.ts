@@ -17,22 +17,15 @@ export type GameModel = Readonly<{
 
 }>
 
-export interface Game {
-  create: (players: PlayerModel[]) => GameModel
-  start: (playerDispatcher?: PlayerDispatcher) => (gameModel: GameModel) => GameModel
-}
+export const create = (players: PlayerModel[]) => ({ players, state: GameState.Idle })
 
-const start: typeof Game.start = (playerDispatcher = playerDispatcherImplementation) => gameModel => {
+export const start = (playerDispatcher: PlayerDispatcher = playerDispatcherImplementation) =>
+ (gameModel: GameModel) => {
   gameModel.players.forEach(p => playerDispatcher(p, PlayerEvent.GameStarted))
   return {
     ...gameModel,
     state: GameState.Playing,
   }
-}
-
-export const Game: Game = {
-  create: players => ({ players, state: GameState.Idle }),
-  start,
 }
 
 const playerDispatcherImplementation: PlayerDispatcher = (_, __) => {

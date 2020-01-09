@@ -1,6 +1,4 @@
-import { GameModel } from "./game"
-
-type Move = {
+export type Move = {
   card: string
 }
 
@@ -8,18 +6,8 @@ export type PlayerModel = {
   name: string
 }
 
-interface PlayerCalbacks {
-  played: (player: PlayerModel, move: Move) => void
-}
+export const create = (name: string) => ({ name })
 
-export interface Player {
-  create: (name: string) => PlayerModel
-  started: (player: PlayerModel, gameModel: GameModel) => void
-}
-
-export const Player: Player = {
-  create: name => ({ name }),
-  started: (_, __) => {
+export const started =  () => {
     //
-   },
-}
+   }
