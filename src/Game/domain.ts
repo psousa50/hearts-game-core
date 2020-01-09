@@ -1,28 +1,41 @@
+import { pipe } from "fp-ts/lib/pipeable"
+import { chain } from "fp-ts/lib/ReaderEither"
 import { Card } from "../Cards/model"
 import { Player } from "../Players/model"
-import { Game, GameState, Move, MoveType, PlayerDispatcher, PlayerEvent } from "./model"
+import { Action, actionErrorOf, actionOf, ActionResult, ask, GameAction } from "../utils/actions"
+import { Game, GameErrorType, GameState, Move, MoveType, PlayerEvent, PlayerEventDispatcher } from "./model"
 
 const nextPlayer = (game: Game) => (game.currentPlayerIndex + 1) % game.players.length
 const isCurrentPlayer = (game: Game, player: Player) => game.players[game.currentPlayerIndex] === player
 const trickEnded = (game: Game) => game.currentTrick.length === game.players.length
 
+export const gameError = (type: GameErrorType) => ({
+  type,
+})
+export const gameErrorOf = (type: GameErrorType) => actionErrorOf<Game>(gameError(type))
+
 export const currentPlayer = (game: Game) => game.players[game.currentPlayerIndex]
 
-export const create = (players: Player[]) => ({
-  currentPlayerIndex: 0,
-  currentTrick: [],
-  players,
-  state: GameState.Idle,
-})
+export const create = (players: Player[]) =>
+  actionOf({
+    currentPlayerIndex: 0,
+    currentTrick: [],
+    players,
+    state: GameState.Idle,
+  })
 
-export const start = (playerDispatcher: PlayerDispatcher = playerDispatcherImplementation) => (game: Game) => {
-  game.players.forEach(p => playerDispatcher(p, PlayerEvent.GameStarted, game))
-  playerDispatcher(currentPlayer(game), PlayerEvent.Play, game)
-  return {
-    ...game,
-    state: GameState.Playing,
-  }
-}
+export const start: GameAction = game =>
+  pipe(
+    ask(),
+    chain(({ playerEventDispatcher }) => {
+      game.players.forEach(p => playerEventDispatcher(p, PlayerEvent.GameStarted, game))
+      playerEventDispatcher(currentPlayer(game), PlayerEvent.Play, game)
+      return actionOf({
+        ...game,
+        state: GameState.Playing,
+      })
+    }),
+  )
 
 export const doPlayerCardMove = (_: Player, card: Card) => (game: Game) => {
   const newGame = {
@@ -40,9 +53,9 @@ export const doPlayerCardMove = (_: Player, card: Card) => (game: Game) => {
 export const doPlayerMove = (player: Player, move: Move) => (game: Game) =>
   move.type === MoveType.Card ? doPlayerCardMove(player, move.card)(game) : game
 
-export const played = (player: Player, move: Move) => (game: Game) =>
-  isCurrentPlayer(game, player) ? doPlayerMove(player, move)(game) : game
+export const played = (player: Player, move: Move): GameAction => game =>
+  isCurrentPlayer(game, player) ? actionOf(doPlayerMove(player, move)(game)) : gameErrorOf(GameErrorType.InvalidPlayer)
 
-const playerDispatcherImplementation: PlayerDispatcher = (_, __) => {
+const playerDispatcherImplementation: PlayerEventDispatcher = (_, __) => {
   //
 }

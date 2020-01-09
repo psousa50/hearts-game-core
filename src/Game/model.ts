@@ -17,6 +17,15 @@ export const enum MoveType {
   Swap,
 }
 
+export const enum GameErrorType {
+  InvalidPlayer,
+  InvalidMove,
+}
+
+export type GameError = {
+  type: GameErrorType
+}
+
 export type CardMove = {
   type: MoveType.Card
   card: Card
@@ -29,11 +38,11 @@ export type SwapMove = {
 
 export type Move = CardMove | SwapMove
 
-export type PlayerDispatcher = (player: Player, event: PlayerEvent, game: Game) => void
+export type PlayerEventDispatcher = (player: Player, event: PlayerEvent, game: Game) => void
 
 export type Game = Readonly<{
-  players: readonly Player[];
+  players: readonly Player[]
   currentPlayerIndex: number
   currentTrick: Card[]
-  state: GameState;
+  state: GameState
 }>

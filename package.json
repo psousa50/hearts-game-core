@@ -21,6 +21,7 @@
   "author": "psousa50",
   "license": "ISC",
   "dependencies": {
+    "fp-ts": "^2.4.0",
     "ramda": "^0.26.1"
   },
   "devDependencies": {
