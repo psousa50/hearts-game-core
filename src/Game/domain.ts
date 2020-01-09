@@ -51,7 +51,7 @@ export const doPlayerCardMove = (_: Player, card: Card): GameAction => game => {
       ask(),
       chain(({ playerEventDispatcher }) => {
         newGame.players.forEach(p => playerEventDispatcher(p, PlayerEvent.TrickFinished, newGame.currentTrick, newGame))
-        return actionOf(newGame)
+        return actionOf({ ...newGame, currentTrick: [] })
       }),
     )
   }

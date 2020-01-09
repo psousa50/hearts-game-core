@@ -54,7 +54,7 @@ describe("game", () => {
       expect(dispatcher).toHaveBeenCalledWith(p1, PlayerEvent.Play, {}, expect.anything())
     })
 
-    it("should have status 'Playing", () => {
+    it("should have status 'Playing'", () => {
       const { environment } = getEnvironment()
       const p1 = Player.create("Player 1")
       const p2 = Player.create("Player 2")
@@ -92,22 +92,20 @@ describe("game", () => {
       })
     })
 
-    it("should finish the trick after all players played", () => {
+    it("calls 'TrickFinished' on every player and clears trick when it finishes", () => {
       const { environment, dispatcher } = getEnvironment()
       const game = Game.create([p1, p2])
 
       const move1 = Move.createCardMove(Card.create(Suit.Clubs, 12))
       const move2 = Move.createCardMove(Card.create(Suit.Spades, 3))
-      const trickFinishedGame = pipe(
-        game,
-        chain(Game.start),
-        chain(Game.played(p1, move1)),
-        chain(Game.played(p2, move2)),
-      )(environment)
+      const trickFinishedGame = getRight(
+        pipe(game, chain(Game.start), chain(Game.played(p1, move1)), chain(Game.played(p2, move2)))(environment),
+      )
 
       const trick = [move1.card, move2.card]
       expect(dispatcher).toHaveBeenCalledWith(p1, PlayerEvent.TrickFinished, trick, expect.anything())
       expect(dispatcher).toHaveBeenCalledWith(p2, PlayerEvent.TrickFinished, trick, expect.anything())
+      expect(trickFinishedGame.currentTrick).toEqual([])
     })
   })
 })
