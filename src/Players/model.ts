@@ -1,3 +1,6 @@
+import { Card } from "../Cards/model"
+
 export type Player = {
-  name: string;
+  name: string
+  tricks: Card[][]
 }

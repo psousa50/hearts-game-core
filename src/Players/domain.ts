@@ -1,5 +1,7 @@
-export const create = (name: string) => ({ name })
+import { Card } from "../Cards/model"
 
-export const started =  () => {
-    //
-   }
+export const create = (name: string) => ({ name, tricks: [] as Card[][] })
+
+export const started = () => {
+  //
+}
