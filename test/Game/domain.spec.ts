@@ -92,7 +92,7 @@ describe("game", () => {
       })
     })
 
-    it.only("should finish the trick after all players played", () => {
+    it("should finish the trick after all players played", () => {
       const { environment, dispatcher } = getEnvironment()
       const game = Game.create([p1, p2])
 
