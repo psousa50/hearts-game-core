@@ -1,6 +1,6 @@
-import * as Game from "../src/game"
-import { GameState, PlayerEvent } from "../src/game"
-import * as Player from "../src/players"
+import * as Game from "../../src/Game/domain"
+import { GameState, PlayerEvent } from "../../src/Game/model"
+import * as Player from "../../src/Players/domain"
 
 describe("game", () => {
   describe("On Start", () => {
@@ -17,6 +17,7 @@ describe("game", () => {
       expect(dispatcher).toHaveBeenCalledWith(p1, PlayerEvent.GameStarted)
       expect(dispatcher).toHaveBeenCalledWith(p2, PlayerEvent.GameStarted)
     })
+
     it("should have status 'Playing", () => {
       const p1 = Player.create("Player 1")
       const p2 = Player.create("Player 2")
