@@ -1,5 +1,4 @@
-import { Card } from "../Cards/model"
-import { MoveType } from "../Moves/model"
+import { Trick } from "../Cards/model"
 import { Player } from "../Players/model"
 
 export const enum PlayerEvent {
@@ -27,6 +26,6 @@ export type PlayerEventDispatcher = (player: Player, event: PlayerEvent, eventDa
 export type Game = Readonly<{
   players: readonly Player[]
   currentPlayerIndex: number
-  currentTrick: Card[]
+  currentTrick: Trick
   state: GameState
 }>

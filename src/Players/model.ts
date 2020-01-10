@@ -1,6 +1,6 @@
-import { Card } from "../Cards/model"
+import { Trick } from "../Cards/model"
 
 export type Player = {
   name: string
-  tricks: Card[][]
+  tricks: Trick[]
 }

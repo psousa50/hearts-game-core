@@ -1,10 +1,11 @@
 import { pipe } from "fp-ts/lib/pipeable"
 import { chain } from "fp-ts/lib/ReaderEither"
-import { Card } from "../Cards/model"
+import * as R from "ramda"
+import { Card, Trick } from "../Cards/model"
 import { Move, MoveType } from "../Moves/model"
 import { Player } from "../Players/model"
 import { actionErrorOf, actionOf, ask, GameAction } from "../utils/actions"
-import { Game, GameErrorType, GameState, PlayerEvent, PlayerEventDispatcher } from "./model"
+import { Game, GameErrorType, GameState, PlayerEvent } from "./model"
 
 const nextPlayer = (game: Game) => (game.currentPlayerIndex + 1) % game.players.length
 const isCurrentPlayer = (game: Game, player: Player) => game.players[game.currentPlayerIndex] === player
@@ -16,6 +17,17 @@ export const gameError = (type: GameErrorType) => ({
 export const gameErrorOf = (type: GameErrorType) => actionErrorOf<Game>(gameError(type))
 
 export const currentPlayer = (game: Game) => game.players[game.currentPlayerIndex]
+
+export const findWinningTrickPlayerIndex = (trick: Trick) => {
+  const firstCard = trick[0]
+  const sameSuit = trick.filter(c => c.suit === firstCard.suit)
+  const highestCard = R.reduce(
+    R.max,
+    0,
+    sameSuit.map(c => c.faceValue),
+  )
+  return trick.findIndex(c => c.faceValue === highestCard && c.suit === firstCard.suit)
+}
 
 export const create = (players: Player[]) =>
   actionOf({
@@ -46,12 +58,16 @@ export const doPlayerCardMove = (_: Player, card: Card): GameAction => game => {
   }
 
   if (trickEnded(newGame)) {
-    // const winningTrickPlayedIndex = findWinningTrickPlayerIndex(newGame)
+    const winningTrickPlayedIndex = findWinningTrickPlayerIndex(newGame.currentTrick)
     return pipe(
       ask(),
       chain(({ playerEventDispatcher }) => {
         newGame.players.forEach(p => playerEventDispatcher(p, PlayerEvent.TrickFinished, newGame.currentTrick, newGame))
-        return actionOf({ ...newGame, currentTrick: [] })
+        return actionOf({
+          ...newGame,
+          currentPlayerIndex: winningTrickPlayedIndex,
+          currentTrick: [],
+        })
       }),
     )
   }
@@ -64,7 +80,3 @@ export const doPlayerMove = (player: Player, move: Move): GameAction => game =>
 
 export const played = (player: Player, move: Move): GameAction => game =>
   isCurrentPlayer(game, player) ? doPlayerMove(player, move)(game) : gameErrorOf(GameErrorType.InvalidPlayer)
-
-const playerDispatcherImplementation: PlayerEventDispatcher = (_, __) => {
-  //
-}
