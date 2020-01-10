@@ -2,10 +2,11 @@ import { pipe } from "fp-ts/lib/pipeable"
 import { chain } from "fp-ts/lib/ReaderEither"
 import * as R from "ramda"
 import { Card, Trick } from "../Cards/model"
+import * as Events from "../Events/domain"
 import { Move, MoveType } from "../Moves/model"
 import { Player } from "../Players/model"
 import { actionErrorOf, actionOf, ask, GameAction } from "../utils/actions"
-import { Game, GameErrorType, GameState, PlayerEvent } from "./model"
+import { Game, GameErrorType, GameState } from "./model"
 
 const nextPlayer = (game: Game) => (game.currentPlayerIndex + 1) % game.players.length
 const isCurrentPlayer = (game: Game, player: Player) => game.players[game.currentPlayerIndex] === player
@@ -30,21 +31,28 @@ export const findWinningTrickPlayerIndex = (trick: Trick) => {
 }
 
 export const create = (players: Player[]) =>
-  actionOf({
-    currentPlayerIndex: 0,
-    currentTrick: [],
-    players,
-    state: GameState.Idle,
-  })
+  pipe(
+    ask(),
+    chain(({ dealer }) =>
+      actionOf({
+        currentPlayerIndex: 0,
+        currentTrick: [],
+        deck: dealer.createDeck(),
+        players,
+        state: GameState.Idle,
+      }),
+    ),
+  )
 
 export const start: GameAction = game =>
   pipe(
     ask(),
-    chain(({ playerEventDispatcher }) => {
-      game.players.forEach(p => playerEventDispatcher(p, PlayerEvent.GameStarted, {}, game))
-      playerEventDispatcher(currentPlayer(game), PlayerEvent.Play, {}, game)
+    chain(({ playerEventDispatcher, dealer }) => {
+      game.players.forEach(p => playerEventDispatcher(p, Events.createPlayerEventGameStarted(), game))
+      playerEventDispatcher(currentPlayer(game), Events.createPlayerEventPlay(), game)
       return actionOf({
         ...game,
+        deck: dealer.shuffleDeck(game.deck),
         state: GameState.Playing,
       })
     }),
@@ -62,7 +70,9 @@ export const doPlayerCardMove = (_: Player, card: Card): GameAction => game => {
     return pipe(
       ask(),
       chain(({ playerEventDispatcher }) => {
-        newGame.players.forEach(p => playerEventDispatcher(p, PlayerEvent.TrickFinished, newGame.currentTrick, newGame))
+        newGame.players.forEach(p =>
+          playerEventDispatcher(p, Events.createPlayerEventTrickFinished(newGame.currentTrick), newGame),
+        )
         return actionOf({
           ...newGame,
           currentPlayerIndex: winningTrickPlayedIndex,

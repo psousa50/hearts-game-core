@@ -1,11 +1,6 @@
 import { Trick } from "../Cards/model"
+import { Deck } from "../Dealer/model"
 import { Player } from "../Players/model"
-
-export const enum PlayerEvent {
-  GameStarted,
-  Play,
-  TrickFinished,
-}
 
 export const enum GameState {
   Idle,
@@ -21,9 +16,8 @@ export type GameError = {
   type: GameErrorType
 }
 
-export type PlayerEventDispatcher = (player: Player, event: PlayerEvent, eventData: {}, game: Game) => void
-
 export type Game = Readonly<{
+  deck: Deck
   players: readonly Player[]
   currentPlayerIndex: number
   currentTrick: Trick
