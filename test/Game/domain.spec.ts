@@ -59,7 +59,7 @@ describe("game", () => {
         dealer: { shuffleDeck: jest.fn(() => shuffledDeck) },
       })
       const newGame = getRight(Game.create(twoPlayers)(environment))
-      const startedGame = getRight(Game.start(newGame)(environment))
+      getRight(Game.start(newGame)(environment))
 
       expect(environment.dealer.shuffleDeck).toHaveBeenCalledWith(newGame.deck)
     })

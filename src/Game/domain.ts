@@ -11,12 +11,10 @@ import { Game, GameErrorType, GameStage } from "./model"
 const nextPlayer = (game: Game) => (game.currentPlayerIndex + 1) % game.players.length
 const isCurrentPlayer = (game: Game, playerId: PlayerId) => game.players[game.currentPlayerIndex].id === playerId
 
-export const gameError = (type: GameErrorType) => ({
+const gameError = (type: GameErrorType) => ({
   type,
 })
-export const gameErrorOf = (type: GameErrorType) => actionErrorOf<Game>(gameError(type))
-
-export const currentPlayer = (game: Game) => game.players[game.currentPlayerIndex]
+const gameErrorOf = (type: GameErrorType) => actionErrorOf<Game>(gameError(type))
 
 export const findWinningTrickPlayerIndex = (trick: Trick) => {
   const firstCard = trick[0]
@@ -45,6 +43,8 @@ export const create = (players: Player[]) =>
       })
     }),
   )
+
+export const currentPlayer = (game: Game) => game.players[game.currentPlayerIndex]
 
 export const start: GameAction = game =>
   pipe(
@@ -125,7 +125,7 @@ const doEndOfGame: GameAction = game =>
 const checkEndOfGame: GameAction = game =>
   game.trickCounter === game.deckSize / game.players.length ? doEndOfGame(game) : actionOf(game)
 
-export const doPlayerMove = (playerId: PlayerId, move: Move): GameAction => game =>
+const doPlayerMove = (playerId: PlayerId, move: Move): GameAction => game =>
   pipe(
     ask(),
     chain(({ playerEventDispatcher }) => {
