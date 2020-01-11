@@ -5,6 +5,7 @@ import { Player } from "../Players/model"
 export const enum GameStage {
   Idle = "Idle",
   Playing = "Playing",
+  Ended = "Ended",
 }
 
 export const enum GameErrorType {
@@ -22,4 +23,6 @@ export type Game = Readonly<{
   currentPlayerIndex: number
   currentTrick: Trick
   stage: GameStage
+  deckSize: number
+  trickCounter: number
 }>

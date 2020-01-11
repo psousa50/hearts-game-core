@@ -1,8 +1,8 @@
 export enum Suit {
-  Clubs,
-  Diamonds,
-  Hearts,
-  Spades,
+  Clubs = "Clubs",
+  Diamonds = "Diamonds",
+  Hearts = "Hearts",
+  Spades = "Spades",
 }
 
 export const suits = [Suit.Clubs, Suit.Diamonds, Suit.Hearts, Suit.Spades]

@@ -10,7 +10,6 @@ import { Game, GameErrorType, GameStage } from "./model"
 
 const nextPlayer = (game: Game) => (game.currentPlayerIndex + 1) % game.players.length
 const isCurrentPlayer = (game: Game, playerId: PlayerId) => game.players[game.currentPlayerIndex].id === playerId
-const trickEnded = (game: Game) => game.currentTrick.length === game.players.length
 
 export const gameError = (type: GameErrorType) => ({
   type,
@@ -33,15 +32,18 @@ export const findWinningTrickPlayerIndex = (trick: Trick) => {
 export const create = (players: Player[]) =>
   pipe(
     ask(),
-    chain(({ dealer }) =>
-      actionOf({
+    chain(({ dealer }) => {
+      const deck = dealer.createDeck()
+      return actionOf({
         currentPlayerIndex: 0,
         currentTrick: [],
-        deck: dealer.createDeck(),
+        deck,
+        deckSize: deck.length,
         players,
         stage: GameStage.Idle,
-      }),
-    ),
+        trickCounter: 0,
+      })
+    }),
   )
 
 export const start: GameAction = game =>
@@ -77,35 +79,62 @@ export const start: GameAction = game =>
     }),
   )
 
-export const doPlayerCardMove = (card: Card): GameAction => game => {
-  const newGame = {
+const removeCardFromHand = (card: Card) => (player: Player) => ({
+  ...player,
+  hand: player.hand.filter(c => c.faceValue !== card.faceValue || c.suit !== card.suit),
+})
+
+const replacePlayer = (players: readonly Player[], playerId: PlayerId, replaceFn: (player: Player) => Player) =>
+  players.map(p => (p.id === playerId ? replaceFn(p) : p))
+
+const doPlayerCardMove = (playerId: PlayerId, card: Card): GameAction => game =>
+  actionOf({
     ...game,
     currentPlayerIndex: nextPlayer(game),
     currentTrick: [...game.currentTrick, card],
-  }
+    players: replacePlayer(game.players, playerId, removeCardFromHand(card)),
+  })
 
-  if (trickEnded(newGame)) {
-    const winningTrickPlayedIndex = findWinningTrickPlayerIndex(newGame.currentTrick)
-    return pipe(
-      ask(),
-      chain(({ playerEventDispatcher }) => {
-        newGame.players.forEach(player =>
-          playerEventDispatcher(player.id, Events.createPlayerEventTrickFinished(newGame.currentTrick)),
-        )
-        return actionOf({
-          ...newGame,
-          currentPlayerIndex: winningTrickPlayedIndex,
-          currentTrick: [],
-        })
-      }),
-    )
-  }
-
-  return actionOf(newGame)
+const doTrickFinished: GameAction = game => {
+  const winningTrickPlayedIndex = findWinningTrickPlayerIndex(game.currentTrick)
+  return pipe(
+    ask(),
+    chain(({ playerEventDispatcher }) => {
+      game.players.forEach(player =>
+        playerEventDispatcher(player.id, Events.createPlayerEventTrickFinished(game.currentTrick)),
+      )
+      return actionOf({
+        ...game,
+        currentPlayerIndex: winningTrickPlayedIndex,
+        currentTrick: [],
+        trickCounter: game.trickCounter + 1,
+      })
+    }),
+  )
 }
 
-export const doPlayerMove = (move: Move): GameAction => game =>
-  move.type === MoveType.Card ? doPlayerCardMove(move.card)(game) : actionOf(game)
+const checkTrickFinished: GameAction = game =>
+  game.currentTrick.length === game.players.length ? doTrickFinished(game) : actionOf(game)
+
+const doEndOfGame: GameAction = game =>
+  actionOf({
+    ...game,
+    stage: GameStage.Ended,
+  })
+
+const checkEndOfGame: GameAction = game =>
+  game.trickCounter === game.deckSize / game.players.length ? doEndOfGame(game) : actionOf(game)
+
+export const doPlayerMove = (playerId: PlayerId, move: Move): GameAction => game =>
+  pipe(
+    ask(),
+    chain(({ playerEventDispatcher }) => {
+      game.players.forEach(player => playerEventDispatcher(player.id, Events.createPlayerEventPlayerPlayed(move)))
+      return move.type === MoveType.Card ? doPlayerCardMove(playerId, move.card)(game) : actionOf(game)
+    }),
+    chain(checkTrickFinished),
+    chain(checkEndOfGame),
+  )
 
 export const played = (playerId: PlayerId, move: Move): GameAction => game =>
-  isCurrentPlayer(game, playerId) ? doPlayerMove(move)(game) : gameErrorOf(GameErrorType.InvalidPlayer)
+  isCurrentPlayer(game, playerId) ? doPlayerMove(playerId, move)(game) : gameErrorOf(GameErrorType.InvalidPlayer)

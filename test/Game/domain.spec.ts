@@ -25,7 +25,7 @@ describe("game", () => {
   const getEnvironment = (overrides: DeepPartial<Environment> = {}) => {
     const defaultEnvironment = {
       dealer: {
-        createDeck: jest.fn(),
+        createDeck: jest.fn(() => []),
         distributeCards: jest.fn(() => ({ deck: [], cards: [] })),
         shuffleDeck: jest.fn(),
       },
@@ -99,35 +99,67 @@ describe("game", () => {
     })
 
     describe("While playing", () => {
-      describe("After first move", () => {
-        const gameAfterFirstMove = (move: MoveModels.Move) => {
-          const environment = getEnvironment()
+      const fourPlayers = [
+        Player.create("id1", "Player 1"),
+        Player.create("id2", "Player 2"),
+        Player.create("id3", "Player 3"),
+        Player.create("id4", "Player 4"),
+      ]
+
+      describe("After a move", () => {
+        const gameAfterFirstMove = (environment: Environment, move: MoveModels.Move) => {
           const game = Game.create(twoPlayers)
 
           return pipe(game, chain(Game.start), chain(Game.played(firstPlayer.id, move)))(environment)
         }
 
+        it("should remove card from players hand", () => {
+          const card1 = Card.create(Suit.Clubs, 5)
+          const card2 = Card.create(Suit.Hearts, 7)
+          const move = Move.createCardMove(card2)
+          const player1Cards = [card1, card2]
+          const environment = getEnvironment({
+            dealer: {
+              distributeCards: jest
+                .fn()
+                .mockImplementationOnce(() => ({ deck: [], cards: player1Cards }))
+                .mockImplementationOnce(() => ({ deck: [], cards: [] })),
+            },
+          })
+          const game = getRight(gameAfterFirstMove(environment, move))
+
+          expect(game.players[0].hand).toEqual([card1])
+        })
+
         it("should add player card move to current trick", () => {
+          const environment = getEnvironment()
           const move = Move.createCardMove(Card.create(Suit.Clubs, 2))
-          const game = getRight(gameAfterFirstMove(move))
+          const game = getRight(gameAfterFirstMove(environment, move))
+
           expect(game.currentTrick).toEqual([move.card])
         })
 
+        it("should call 'PlayerPlayed' on every player", () => {
+          const environment = getEnvironment()
+          const move = Move.createCardMove(Card.create(Suit.Clubs, 2))
+          gameAfterFirstMove(environment, move)
+
+          const dispatcher = environment.playerEventDispatcher
+          const event = Events.createPlayerEventPlayerPlayed(move)
+          expect(dispatcher).toHaveBeenCalledWith(firstPlayer.id, event)
+          expect(dispatcher).toHaveBeenCalledWith(secondPlayer.id, event)
+        })
+
         it("should move to next player", () => {
+          const environment = getEnvironment()
           const move = { some: "move" } as any
-          const game = getRight(gameAfterFirstMove(move))
+          const game = getRight(gameAfterFirstMove(environment, move))
+
           expect(Game.currentPlayer(game).id).toBe(firstPlayer.id)
         })
       })
 
       describe("When trick finishes", () => {
-        const fourPlayers = [
-          Player.create("id1", "Player 1"),
-          Player.create("id2", "Player 2"),
-          Player.create("id3", "Player 3"),
-          Player.create("id4", "Player 4"),
-        ]
-
         const moves = [
           Move.createCardMove(Card.create(Suit.Clubs, 5)),
           Move.createCardMove(Card.create(Suit.Clubs, 3)),
@@ -152,11 +184,11 @@ describe("game", () => {
 
         it("calls 'TrickFinished' on every player", () => {
           const environment = getEnvironment()
-          const dispatcher = environment.playerEventDispatcher
           getTrickFinishedGame(environment)
 
           const trick = moves.map(m => m.card)
           const event = Events.createPlayerEventTrickFinished(trick)
+          const dispatcher = environment.playerEventDispatcher
           expect(dispatcher).toHaveBeenCalledWith(fourPlayers[0].id, event)
           expect(dispatcher).toHaveBeenCalledWith(fourPlayers[1].id, event)
           expect(dispatcher).toHaveBeenCalledWith(fourPlayers[2].id, event)
@@ -177,28 +209,57 @@ describe("game", () => {
           expect(trickFinishedGame.currentPlayerIndex).toEqual(2)
         })
       })
+
+      describe("When game ends", () => {
+        it("should call 'GameEnded on every player", () => {
+          const someCard = Card.create(Suit.Clubs, 5)
+          const move = Move.createCardMove(someCard)
+          const playerCards = [someCard, someCard, someCard]
+          const environment = getEnvironment({
+            dealer: {
+              createDeck: () => [someCard, someCard, someCard, someCard],
+              distributeCards: jest
+                .fn()
+                .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
+                .mockImplementationOnce(() => ({ deck: [], cards: playerCards })),
+            },
+          })
+          const finishedGame = getRight(
+            pipe(
+              Game.create(twoPlayers),
+              chain(Game.start),
+              chain(Game.played(firstPlayer.id, move)),
+              chain(Game.played(secondPlayer.id, move)),
+              chain(Game.played(firstPlayer.id, move)),
+              chain(Game.played(secondPlayer.id, move)),
+            )(environment),
+          )
+
+          expect(finishedGame.stage).toEqual(GameStage.Ended)
+        })
+      })
+    })
+  })
+
+  describe("Winning Trick", () => {
+    it("is the highest card of the same suit as the first", () => {
+      const c0 = Card.create(Suit.Spades, 3)
+      const c1 = Card.create(Suit.Diamonds, 5)
+      const c2 = Card.create(Suit.Spades, 5)
+      const c3 = Card.create(Suit.Spades, 9)
+      const trick = [c0, c1, c2, c3]
+
+      expect(Game.findWinningTrickPlayerIndex(trick)).toEqual(3)
     })
 
-    describe("Winning Trick", () => {
-      it("is the highest card of the same suit as the first", () => {
-        const c0 = Card.create(Suit.Spades, 3)
-        const c1 = Card.create(Suit.Diamonds, 5)
-        const c2 = Card.create(Suit.Spades, 5)
-        const c3 = Card.create(Suit.Spades, 9)
-        const trick = [c0, c1, c2, c3]
+    it("is the first if no other has the same suit", () => {
+      const c0 = Card.create(Suit.Spades, 3)
+      const c1 = Card.create(Suit.Diamonds, 5)
+      const c2 = Card.create(Suit.Diamonds, 5)
+      const c3 = Card.create(Suit.Clubs, 9)
+      const trick = [c0, c1, c2, c3]
 
-        expect(Game.findWinningTrickPlayerIndex(trick)).toEqual(3)
-      })
-
-      it("is the first if no other has the same suit", () => {
-        const c0 = Card.create(Suit.Spades, 3)
-        const c1 = Card.create(Suit.Diamonds, 5)
-        const c2 = Card.create(Suit.Diamonds, 5)
-        const c3 = Card.create(Suit.Clubs, 9)
-        const trick = [c0, c1, c2, c3]
-
-        expect(Game.findWinningTrickPlayerIndex(trick)).toEqual(0)
-      })
+      expect(Game.findWinningTrickPlayerIndex(trick)).toEqual(0)
     })
   })
 })
