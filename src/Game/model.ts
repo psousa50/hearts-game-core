@@ -9,8 +9,9 @@ export const enum GameStage {
 }
 
 export const enum GameErrorType {
-  InvalidPlayer,
-  InvalidMove,
+  InvalidPlayer = "InvalidPlayer",
+  PlayerNotFound = "PlayerNotFound",
+  InvalidMove = "InvalidMove",
 }
 
 export type GameError = {

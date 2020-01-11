@@ -1,7 +1,8 @@
 import { pipe } from "fp-ts/lib/pipeable"
 import { chain } from "fp-ts/lib/ReaderEither"
 import * as R from "ramda"
-import { Card, Hand, Trick } from "../Cards/model"
+import * as Card from "../Cards/domain"
+import * as CardModel from "../Cards/model"
 import * as Events from "../Events/domain"
 import { Move, MoveType } from "../Moves/model"
 import { Player, PlayerId } from "../Players/model"
@@ -16,7 +17,7 @@ const gameError = (type: GameErrorType) => ({
 })
 const gameErrorOf = (type: GameErrorType) => actionErrorOf<Game>(gameError(type))
 
-export const findWinningTrickPlayerIndex = (trick: Trick) => {
+export const findWinningTrickPlayerIndex = (trick: CardModel.Trick) => {
   const firstCard = trick[0]
   const sameSuit = trick.filter(c => c.suit === firstCard.suit)
   const highestCard = R.reduce(
@@ -61,7 +62,7 @@ export const start: GameAction = game =>
         },
         {
           deck: shuffledDeck,
-          hands: [] as Hand[],
+          hands: [] as CardModel.Hand[],
         },
       )
       const players = game.players.map((player, i) => ({
@@ -79,7 +80,7 @@ export const start: GameAction = game =>
     }),
   )
 
-const removeCardFromHand = (card: Card) => (player: Player) => ({
+const removeCardFromHand = (card: CardModel.Card) => (player: Player) => ({
   ...player,
   hand: player.hand.filter(c => c.faceValue !== card.faceValue || c.suit !== card.suit),
 })
@@ -87,7 +88,7 @@ const removeCardFromHand = (card: Card) => (player: Player) => ({
 const replacePlayer = (players: readonly Player[], playerId: PlayerId, replaceFn: (player: Player) => Player) =>
   players.map(p => (p.id === playerId ? replaceFn(p) : p))
 
-const doPlayerCardMove = (playerId: PlayerId, card: Card): GameAction => game =>
+const doPlayerCardMove = (playerId: PlayerId, card: CardModel.Card): GameAction => game =>
   actionOf({
     ...game,
     currentPlayerIndex: nextPlayer(game),
@@ -138,3 +139,20 @@ const doPlayerMove = (playerId: PlayerId, move: Move): GameAction => game =>
 
 export const played = (playerId: PlayerId, move: Move): GameAction => game =>
   isCurrentPlayer(game, playerId) ? doPlayerMove(playerId, move)(game) : gameErrorOf(GameErrorType.InvalidPlayer)
+
+const getPlayer = (game: Game, playerId: PlayerId) => game.players.find(p => p.id === playerId)
+
+const twoOfClubs = Card.create(CardModel.Suit.Clubs, 2)
+
+const isValidCardMove = (game: Game, playerId: PlayerId, card: CardModel.Card) => {
+  const player = getPlayer(game, playerId)
+  return player
+    ? (game.trickCounter !== 0 || game.currentTrick.length > 0 || Card.equals(card, twoOfClubs)) &&
+        (game.currentTrick.length === 0 ||
+          game.currentTrick[0].suit === card.suit ||
+          player.hand.every(c => c.suit !== game.currentTrick[0].suit))
+    : false
+}
+
+export const isValidMove = (game: Game, playerId: PlayerId, move: Move) =>
+  move.type === MoveType.Card ? isValidCardMove(game, playerId, move.card) : false

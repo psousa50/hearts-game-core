@@ -3,10 +3,12 @@ import { pipe } from "fp-ts/lib/pipeable"
 import { chain } from "fp-ts/lib/ReaderEither"
 import * as R from "ramda"
 import * as Card from "../../src/Cards/domain"
+import * as CardModel from "../../src/Cards/model"
 import { Suit } from "../../src/Cards/model"
 import { Environment } from "../../src/Environment/model"
 import * as Events from "../../src/Events/domain"
 import * as Game from "../../src/Game/domain"
+import * as GameModel from "../../src/Game/model"
 import { GameStage } from "../../src/Game/model"
 import * as Move from "../../src/Moves/domain"
 import * as MoveModels from "../../src/Moves/model"
@@ -260,6 +262,51 @@ describe("game", () => {
       const trick = [c0, c1, c2, c3]
 
       expect(Game.findWinningTrickPlayerIndex(trick)).toEqual(0)
+    })
+  })
+
+  describe("Moves are", () => {
+    const startGame = ({ player2Hand: player2Hand }: { player2Hand: CardModel.Card[] } = { player2Hand: [] }) => {
+      const game = getRight(pipe(Game.create(twoPlayers), chain(Game.start))(getEnvironment()))
+      const player2 = game.players[1]
+      return {
+        ...game,
+        players: [game.players[0], { ...player2, hand: player2Hand }],
+      }
+    }
+
+    const playCard = (game: GameModel.Game, card: CardModel.Card) => {
+      const move = Move.createCardMove(card)
+      return getRight(Game.played(firstPlayer.id, move)(game)(getEnvironment()))
+    }
+
+    describe("valid if", () => {
+      it("suit is the same as the first card", () => {
+        const game = playCard(startGame(), Card.create(Suit.Clubs, 2))
+        const validMove = Move.createCardMove(Card.create(Suit.Clubs, 3))
+
+        expect(Game.isValidMove(game, secondPlayer.id, validMove)).toBeTruthy()
+      })
+
+      it("suit is different but player has no card of the same suit", () => {
+        const firstCard = Card.create(Suit.Hearts, 3)
+        const moveCard = Card.create(Suit.Clubs, 3)
+        const validMove = Move.createCardMove(moveCard)
+        const otherCard = Card.create(Suit.Spades, 3)
+        const player2Cards = [moveCard, otherCard]
+        const game = playCard(startGame({ player2Hand: player2Cards }), firstCard)
+
+        expect(Game.isValidMove(game, secondPlayer.id, validMove)).toBeTruthy()
+      })
+    })
+
+    describe("invalid if", () => {
+      it("first trick card is not the 2 of clubs", () => {
+        const game = startGame()
+        const not2OfClubs = Card.create(Suit.Clubs, 3)
+        const invalidMove = Move.createCardMove(not2OfClubs)
+        expect(Game.isValidMove(game, firstPlayer.id, invalidMove)).toBeFalsy()
+      })
     })
   })
 })
