@@ -170,7 +170,7 @@ describe("game", () => {
           expect(trickFinishedGame.currentTrick).toEqual([])
         })
 
-        it("set's the current player to the winning trick", () => {
+        it("set's the current player to the winning player", () => {
           const environment = getEnvironment()
           const trickFinishedGame = getTrickFinishedGame(environment)
 
