@@ -1,4 +1,5 @@
-import { Either, getOrElse } from "fp-ts/lib/Either"
+import { Either, fold, getOrElse, isLeft } from "fp-ts/lib/Either"
+import { identity } from "fp-ts/lib/function"
 import { pipe } from "fp-ts/lib/pipeable"
 import { chain } from "fp-ts/lib/ReaderEither"
 import * as R from "ramda"
@@ -19,7 +20,15 @@ const getRight = <L, A>(fa: Either<L, A>) =>
   pipe(
     fa,
     getOrElse<L, A>(e => {
-      throw new Error(`Should be Right${JSON.stringify(e)}`)
+      throw new Error(`Should be Right => ${JSON.stringify(e)}`)
+    }),
+  )
+
+const getLeft = <L, A>(fa: Either<L, A>) =>
+  pipe(
+    fa,
+    fold(identity, r => {
+      throw new Error(`Should be Left => ${JSON.stringify(r)}`)
     }),
   )
 
@@ -32,6 +41,7 @@ describe("game", () => {
         shuffleDeck: jest.fn(),
       },
       playerEventDispatcher: jest.fn(),
+      validateMove: () => true,
     }
 
     return R.mergeDeepRight(defaultEnvironment, overrides)
@@ -99,147 +109,161 @@ describe("game", () => {
 
       expect(environment.playerEventDispatcher).toHaveBeenCalledWith(firstPlayer.id, Events.createPlayerEventPlay())
     })
+  })
 
-    describe("While playing", () => {
-      const fourPlayers = [
-        Player.create("id1", "Player 1"),
-        Player.create("id2", "Player 2"),
-        Player.create("id3", "Player 3"),
-        Player.create("id4", "Player 4"),
+  describe("While playing", () => {
+    const fourPlayers = [
+      Player.create("id1", "Player 1"),
+      Player.create("id2", "Player 2"),
+      Player.create("id3", "Player 3"),
+      Player.create("id4", "Player 4"),
+    ]
+
+    describe("After a move", () => {
+      const gameAfterFirstMove = (environment: Environment, move: MoveModels.Move) => {
+        const game = Game.create(twoPlayers)
+
+        return pipe(game, chain(Game.start), chain(Game.played(firstPlayer.id, move)))(environment)
+      }
+
+      it("should remove card from players hand", () => {
+        const card1 = Card.create(Suit.Clubs, 5)
+        const card2 = Card.create(Suit.Hearts, 7)
+        const move = Move.createCardMove(card2)
+        const player1Cards = [card1, card2]
+        const environment = getEnvironment({
+          dealer: {
+            distributeCards: jest
+              .fn()
+              .mockImplementationOnce(() => ({ deck: [], cards: player1Cards }))
+              .mockImplementationOnce(() => ({ deck: [], cards: [] })),
+          },
+        })
+        const game = getRight(gameAfterFirstMove(environment, move))
+
+        expect(game.players[0].hand).toEqual([card1])
+      })
+
+      it("should add player card move to current trick", () => {
+        const environment = getEnvironment()
+        const move = Move.createCardMove(Card.create(Suit.Clubs, 2))
+        const game = getRight(gameAfterFirstMove(environment, move))
+
+        expect(game.currentTrick).toEqual([move.card])
+      })
+
+      it("should call 'PlayerPlayed' on every player", () => {
+        const environment = getEnvironment()
+        const move = Move.createCardMove(Card.create(Suit.Clubs, 2))
+        gameAfterFirstMove(environment, move)
+
+        const dispatcher = environment.playerEventDispatcher
+        const event = Events.createPlayerEventPlayerPlayed(move)
+        expect(dispatcher).toHaveBeenCalledWith(firstPlayer.id, event)
+        expect(dispatcher).toHaveBeenCalledWith(secondPlayer.id, event)
+      })
+
+      it("should move to next player", () => {
+        const environment = getEnvironment()
+        const move = { some: "move" } as any
+        const game = getRight(gameAfterFirstMove(environment, move))
+
+        expect(Game.currentPlayer(game).id).toBe(firstPlayer.id)
+      })
+    })
+
+    describe("When trick finishes", () => {
+      const moves = [
+        Move.createCardMove(Card.create(Suit.Clubs, 5)),
+        Move.createCardMove(Card.create(Suit.Clubs, 3)),
+        Move.createCardMove(Card.create(Suit.Clubs, 8)),
+        Move.createCardMove(Card.create(Suit.Hearts, 10)),
       ]
 
-      describe("After a move", () => {
-        const gameAfterFirstMove = (environment: Environment, move: MoveModels.Move) => {
-          const game = Game.create(twoPlayers)
+      const getTrickFinishedGame = (environment: Environment) => {
+        const game = Game.create(fourPlayers)
 
-          return pipe(game, chain(Game.start), chain(Game.played(firstPlayer.id, move)))(environment)
-        }
+        return getRight(
+          pipe(
+            game,
+            chain(Game.start),
+            chain(Game.played(fourPlayers[0].id, moves[0])),
+            chain(Game.played(fourPlayers[1].id, moves[1])),
+            chain(Game.played(fourPlayers[2].id, moves[2])),
+            chain(Game.played(fourPlayers[3].id, moves[3])),
+          )(environment),
+        )
+      }
 
-        it("should remove card from players hand", () => {
-          const card1 = Card.create(Suit.Clubs, 5)
-          const card2 = Card.create(Suit.Hearts, 7)
-          const move = Move.createCardMove(card2)
-          const player1Cards = [card1, card2]
-          const environment = getEnvironment({
-            dealer: {
-              distributeCards: jest
-                .fn()
-                .mockImplementationOnce(() => ({ deck: [], cards: player1Cards }))
-                .mockImplementationOnce(() => ({ deck: [], cards: [] })),
-            },
-          })
-          const game = getRight(gameAfterFirstMove(environment, move))
+      it("calls 'TrickFinished' on every player", () => {
+        const environment = getEnvironment()
+        getTrickFinishedGame(environment)
 
-          expect(game.players[0].hand).toEqual([card1])
-        })
-
-        it("should add player card move to current trick", () => {
-          const environment = getEnvironment()
-          const move = Move.createCardMove(Card.create(Suit.Clubs, 2))
-          const game = getRight(gameAfterFirstMove(environment, move))
-
-          expect(game.currentTrick).toEqual([move.card])
-        })
-
-        it("should call 'PlayerPlayed' on every player", () => {
-          const environment = getEnvironment()
-          const move = Move.createCardMove(Card.create(Suit.Clubs, 2))
-          gameAfterFirstMove(environment, move)
-
-          const dispatcher = environment.playerEventDispatcher
-          const event = Events.createPlayerEventPlayerPlayed(move)
-          expect(dispatcher).toHaveBeenCalledWith(firstPlayer.id, event)
-          expect(dispatcher).toHaveBeenCalledWith(secondPlayer.id, event)
-        })
-
-        it("should move to next player", () => {
-          const environment = getEnvironment()
-          const move = { some: "move" } as any
-          const game = getRight(gameAfterFirstMove(environment, move))
-
-          expect(Game.currentPlayer(game).id).toBe(firstPlayer.id)
-        })
+        const trick = moves.map(m => m.card)
+        const event = Events.createPlayerEventTrickFinished(trick)
+        const dispatcher = environment.playerEventDispatcher
+        expect(dispatcher).toHaveBeenCalledWith(fourPlayers[0].id, event)
+        expect(dispatcher).toHaveBeenCalledWith(fourPlayers[1].id, event)
+        expect(dispatcher).toHaveBeenCalledWith(fourPlayers[2].id, event)
+        expect(dispatcher).toHaveBeenCalledWith(fourPlayers[3].id, event)
       })
 
-      describe("When trick finishes", () => {
-        const moves = [
-          Move.createCardMove(Card.create(Suit.Clubs, 5)),
-          Move.createCardMove(Card.create(Suit.Clubs, 3)),
-          Move.createCardMove(Card.create(Suit.Clubs, 8)),
-          Move.createCardMove(Card.create(Suit.Hearts, 10)),
-        ]
+      it("clears current trick", () => {
+        const environment = getEnvironment()
+        const trickFinishedGame = getTrickFinishedGame(environment)
 
-        const getTrickFinishedGame = (environment: Environment) => {
-          const game = Game.create(fourPlayers)
-
-          return getRight(
-            pipe(
-              game,
-              chain(Game.start),
-              chain(Game.played(fourPlayers[0].id, moves[0])),
-              chain(Game.played(fourPlayers[1].id, moves[1])),
-              chain(Game.played(fourPlayers[2].id, moves[2])),
-              chain(Game.played(fourPlayers[3].id, moves[3])),
-            )(environment),
-          )
-        }
-
-        it("calls 'TrickFinished' on every player", () => {
-          const environment = getEnvironment()
-          getTrickFinishedGame(environment)
-
-          const trick = moves.map(m => m.card)
-          const event = Events.createPlayerEventTrickFinished(trick)
-          const dispatcher = environment.playerEventDispatcher
-          expect(dispatcher).toHaveBeenCalledWith(fourPlayers[0].id, event)
-          expect(dispatcher).toHaveBeenCalledWith(fourPlayers[1].id, event)
-          expect(dispatcher).toHaveBeenCalledWith(fourPlayers[2].id, event)
-          expect(dispatcher).toHaveBeenCalledWith(fourPlayers[3].id, event)
-        })
-
-        it("clears current trick", () => {
-          const environment = getEnvironment()
-          const trickFinishedGame = getTrickFinishedGame(environment)
-
-          expect(trickFinishedGame.currentTrick).toEqual([])
-        })
-
-        it("set's the current player to the winning player", () => {
-          const environment = getEnvironment()
-          const trickFinishedGame = getTrickFinishedGame(environment)
-
-          expect(trickFinishedGame.currentPlayerIndex).toEqual(2)
-        })
+        expect(trickFinishedGame.currentTrick).toEqual([])
       })
 
-      describe("When game ends", () => {
-        it("should call 'GameEnded on every player", () => {
-          const someCard = Card.create(Suit.Clubs, 5)
-          const move = Move.createCardMove(someCard)
-          const playerCards = [someCard, someCard, someCard]
-          const environment = getEnvironment({
-            dealer: {
-              createDeck: () => [someCard, someCard, someCard, someCard],
-              distributeCards: jest
-                .fn()
-                .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
-                .mockImplementationOnce(() => ({ deck: [], cards: playerCards })),
-            },
-          })
-          const finishedGame = getRight(
-            pipe(
-              Game.create(twoPlayers),
-              chain(Game.start),
-              chain(Game.played(firstPlayer.id, move)),
-              chain(Game.played(secondPlayer.id, move)),
-              chain(Game.played(firstPlayer.id, move)),
-              chain(Game.played(secondPlayer.id, move)),
-            )(environment),
-          )
+      it("set's the current player to the winning player", () => {
+        const environment = getEnvironment()
+        const trickFinishedGame = getTrickFinishedGame(environment)
 
-          expect(finishedGame.stage).toEqual(GameStage.Ended)
-        })
+        expect(trickFinishedGame.currentPlayerIndex).toEqual(2)
       })
+    })
+
+    describe("When game ends", () => {
+      it("should call 'GameEnded on every player", () => {
+        const someCard = Card.create(Suit.Clubs, 5)
+        const move = Move.createCardMove(someCard)
+        const playerCards = [someCard, someCard, someCard]
+        const environment = getEnvironment({
+          dealer: {
+            createDeck: () => [someCard, someCard, someCard, someCard],
+            distributeCards: jest
+              .fn()
+              .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
+              .mockImplementationOnce(() => ({ deck: [], cards: playerCards })),
+          },
+        })
+        const finishedGame = getRight(
+          pipe(
+            Game.create(twoPlayers),
+            chain(Game.start),
+            chain(Game.played(firstPlayer.id, move)),
+            chain(Game.played(secondPlayer.id, move)),
+            chain(Game.played(firstPlayer.id, move)),
+            chain(Game.played(secondPlayer.id, move)),
+          )(environment),
+        )
+
+        expect(finishedGame.stage).toEqual(GameStage.Ended)
+      })
+    })
+
+    it("rejects invalid moves", () => {
+      const environment = getEnvironment({
+        validateMove: () => false,
+      })
+      const invalidMove = { some: "invalid-move" } as any
+      const game = pipe(
+        Game.create(twoPlayers),
+        chain(Game.start),
+        chain(Game.played(firstPlayer.id, invalidMove)),
+      )(environment)
+
+      expect(getLeft(game).type).toEqual(GameModel.GameErrorType.InvalidMove)
     })
   })
 

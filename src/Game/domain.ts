@@ -129,9 +129,13 @@ const checkEndOfGame: GameAction = game =>
 const doPlayerMove = (playerId: PlayerId, move: Move): GameAction => game =>
   pipe(
     ask(),
-    chain(({ playerEventDispatcher }) => {
-      game.players.forEach(player => playerEventDispatcher(player.id, Events.createPlayerEventPlayerPlayed(move)))
-      return move.type === MoveType.Card ? doPlayerCardMove(playerId, move.card)(game) : actionOf(game)
+    chain(({ playerEventDispatcher, validateMove }) => {
+      if (validateMove(game, playerId, move)) {
+        game.players.forEach(player => playerEventDispatcher(player.id, Events.createPlayerEventPlayerPlayed(move)))
+        return move.type === MoveType.Card ? doPlayerCardMove(playerId, move.card)(game) : actionOf(game)
+      } else {
+        return gameErrorOf(GameErrorType.InvalidMove)
+      }
     }),
     chain(checkTrickFinished),
     chain(checkEndOfGame),
