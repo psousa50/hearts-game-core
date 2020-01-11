@@ -1,7 +1,4 @@
-import { Card } from "../Cards/model"
+import { Hand } from "../Cards/model"
+import { PlayerId } from "./model"
 
-export const create = (name: string) => ({ name, tricks: [] as Card[][] })
-
-export const started = () => {
-  //
-}
+export const create = (id: PlayerId, name: string) => ({ id, name, hand: {} as Hand, tricks: [] as Hand[] })

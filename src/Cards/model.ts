@@ -14,4 +14,7 @@ export type Card = {
   suit: Suit
   faceValue: FaceValue
 }
+
 export type Trick = Card[]
+
+export type Hand = Card[]

@@ -1,7 +1,8 @@
-import { Trick } from "../Cards/model"
+import { Hand, Trick } from "../Cards/model"
 import { PlayerEventType } from "./model"
 
-export const createPlayerEventGameStarted = () => ({
+export const createPlayerEventGameStarted = (initialHand: Hand) => ({
+  initialHand,
   type: PlayerEventType.GameStarted,
 })
 

@@ -1,3 +1,4 @@
+// tslint:disable-next-line: ban-types
 export type DeepPartial<T> = T extends Function
   ? T
   : T extends Array<infer U>
