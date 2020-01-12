@@ -69,14 +69,23 @@ export const start: GameAction = game =>
         ...player,
         hand: distributedCards.hands[i],
       }))
-      players.forEach(player => playerEventDispatcher(player.id, Events.createPlayerEventGameStarted(player.hand)))
-      playerEventDispatcher(currentPlayer(game).id, Events.createPlayerEventPlay())
-      return actionOf({
+      const nextGame = {
         ...game,
         deck: distributedCards.deck,
         players,
         stage: GameStage.Playing,
-      })
+      }
+      players.forEach(player => playerEventDispatcher(player.id, Events.createPlayerEventGameStarted(player.hand)))
+      playerEventDispatcher(
+        currentPlayer(nextGame).id,
+        Events.createPlayerEventPlay(
+          currentPlayer(nextGame).hand,
+          nextGame.currentTrick,
+          nextGame.stage,
+          nextGame.trickCounter,
+        ),
+      )
+      return actionOf(nextGame)
     }),
   )
 

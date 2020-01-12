@@ -1,6 +1,7 @@
 import { Hand, Trick } from "../Cards/model"
+import { GameStage } from "../Game/model"
 import { Move } from "../Moves/model"
-import { PlayerId } from "../Players/model"
+import { Player, PlayerId } from "../Players/model"
 
 export const enum PlayerEventType {
   GameStarted = "GameStarted",
@@ -25,6 +26,11 @@ export interface PlayerEventTrickFinished extends PlayerEvent {
   trick: Trick
 }
 
-export type PlayerEventPlay = PlayerEvent
+export interface PlayerEventPlay extends PlayerEvent {
+  hand: Hand
+  currentTrick: Trick
+  stage: GameStage
+  trickCounter: number
+}
 
 export type PlayerEventDispatcher = (playerId: PlayerId, event: PlayerEvent) => void

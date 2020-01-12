@@ -52,7 +52,7 @@ describe("game", () => {
   const twoPlayers = [firstPlayer, secondPlayer]
 
   describe("On Creation", () => {
-    it("creates a new game with a new Deck, on Idle status", () => {
+    it("creates a new game with a new Deck, on 'Idle' status", () => {
       const newDeck = { some: "Deck" } as any
       const environment = getEnvironment({
         dealer: { createDeck: jest.fn(() => newDeck) },
@@ -103,11 +103,14 @@ describe("game", () => {
       expect(dispatcher).toHaveBeenCalledWith(secondPlayer.id, Events.createPlayerEventGameStarted(player2Cards))
     })
 
-    it("calls 'Play' on first player", () => {
+    it.only("calls 'Play' on first player", () => {
       const environment = getEnvironment()
       pipe(Game.create(twoPlayers), chain(Game.start))(environment)
 
-      expect(environment.playerEventDispatcher).toHaveBeenCalledWith(firstPlayer.id, Events.createPlayerEventPlay())
+      expect(environment.playerEventDispatcher).toHaveBeenCalledWith(
+        firstPlayer.id,
+        Events.createPlayerEventPlay(firstPlayer.hand, [], GameStage.Playing, 0),
+      )
     })
   })
 

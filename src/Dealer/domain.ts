@@ -17,3 +17,8 @@ export const shuffleDeck = (deck: Deck) =>
     const p = Math.floor(Math.random() * 52)
     return [...acc.slice(0, p), ...acc.slice(p + 1), deck[p]]
   }, deck)
+
+export const distributeCards = (deck: Deck, count: number) => ({
+  cards: deck.slice(0, count),
+  deck: deck.slice(count),
+})

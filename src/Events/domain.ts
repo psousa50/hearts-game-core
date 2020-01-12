@@ -1,5 +1,7 @@
 import { Hand, Trick } from "../Cards/model"
+import { GameStage } from "../Game/model"
 import { Move } from "../Moves/model"
+import { Player } from "../Players/model"
 import { PlayerEventType } from "./model"
 
 export const createPlayerEventGameStarted = (initialHand: Hand) => ({
@@ -7,7 +9,11 @@ export const createPlayerEventGameStarted = (initialHand: Hand) => ({
   type: PlayerEventType.GameStarted,
 })
 
-export const createPlayerEventPlay = () => ({
+export const createPlayerEventPlay = (hand: Hand, currentTrick: Trick, stage: GameStage, trickCounter: number) => ({
+  currentTrick,
+  hand,
+  stage,
+  trickCounter,
   type: PlayerEventType.Play,
 })
 
