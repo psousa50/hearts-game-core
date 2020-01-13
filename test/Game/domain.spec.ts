@@ -9,9 +9,11 @@ import { Suit } from "../../src/Cards/model"
 import * as Dealer from "../../src/Dealer/domain"
 import { Environment } from "../../src/Environment/model"
 import * as Events from "../../src/Events/domain"
+import { PlayerEventType } from "../../src/Events/model"
 import * as Game from "../../src/Game/domain"
 import * as GameModel from "../../src/Game/model"
 import { GameStage } from "../../src/Game/model"
+import { playGame } from "../../src/main"
 import * as Move from "../../src/Moves/domain"
 import * as MoveModels from "../../src/Moves/model"
 import * as Player from "../../src/Players/domain"
@@ -257,11 +259,23 @@ describe("game", () => {
       })
 
       it("calls 'Play' on the winning player", () => {
-        const environment = getEnvironment()
+        const someCard = Card.create(Suit.Clubs, 5)
+        const playerCards = [someCard, someCard]
+        const environment = getEnvironment({
+          dealer: {
+            createDeck: () => [someCard, someCard, someCard, someCard, someCard, someCard, someCard, someCard],
+            distributeCards: jest
+              .fn()
+              .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
+              .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
+              .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
+              .mockImplementationOnce(() => ({ deck: [], cards: playerCards })),
+          },
+        })
         getTrickFinishedGame(environment)
         expect(environment.playerEventDispatcher).toHaveBeenCalledWith(
           fourPlayers[2].id,
-          Events.createPlayerEventPlay([], [], GameStage.Ended, 1),
+          Events.createPlayerEventPlay(expect.anything(), [], GameStage.Playing, 1),
         )
       })
     })
@@ -316,6 +330,28 @@ describe("game", () => {
           secondPlayer.id,
           Events.createPlayerEventGameEnded(),
         )
+      })
+
+      it("should not call 'Play' on every player", () => {
+        const someCard = Card.create(Suit.Clubs, 5)
+        const move = Move.createCardMove(someCard)
+        const playerCards = [someCard, someCard]
+        const environment = getEnvironment({
+          dealer: {
+            createDeck: () => [someCard, someCard, someCard, someCard],
+            distributeCards: jest
+              .fn()
+              .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
+              .mockImplementationOnce(() => ({ deck: [], cards: playerCards })),
+          },
+        })
+        getFinishedGame(environment, move)
+
+        const playEvents = (environment.playerEventDispatcher as any).mock.calls
+        .map((c: any) => c[1].type)
+        .filter((c: any) => c === PlayerEventType.Play)
+
+        expect(playEvents.length).toBe(4)
       })
     })
 
@@ -376,7 +412,7 @@ describe("game", () => {
         const game = playCard(startGame(), Card.create(Suit.Clubs, 2))
         const validMove = Move.createCardMove(Card.create(Suit.Clubs, 3))
 
-        expect(Game.isValidMove(game, secondPlayer.id, validMove)).toBeTruthy()
+        expect(Game.isValidMove(game, secondPlayer, validMove)).toBeTruthy()
       })
 
       it("suit is different but player has no card of the same suit", () => {
@@ -387,7 +423,7 @@ describe("game", () => {
         const player2Cards = [moveCard, otherCard]
         const game = playCard(startGame({ player2Hand: player2Cards }), firstCard)
 
-        expect(Game.isValidMove(game, secondPlayer.id, validMove)).toBeTruthy()
+        expect(Game.isValidMove(game, secondPlayer, validMove)).toBeTruthy()
       })
     })
 
@@ -396,7 +432,7 @@ describe("game", () => {
         const game = startGame()
         const not2OfClubs = Card.create(Suit.Clubs, 3)
         const invalidMove = Move.createCardMove(not2OfClubs)
-        expect(Game.isValidMove(game, firstPlayer.id, invalidMove)).toBeFalsy()
+        expect(Game.isValidMove(game, firstPlayer, invalidMove)).toBeFalsy()
       })
     })
   })

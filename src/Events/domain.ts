@@ -19,12 +19,14 @@ export const createPlayerEventPlay = (
   stage: GameStage,
   trickCounter: number,
 ): PlayerEvent => ({
-  gamePublicState: {
+  gameState: {
     currentTrick,
     stage,
     trickCounter,
   },
-  hand,
+  playerState: {
+    hand,
+  },
   type: PlayerEventType.Play,
 })
 

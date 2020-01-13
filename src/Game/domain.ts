@@ -6,9 +6,9 @@ import * as CardModel from "../Cards/model"
 import * as Events from "../Events/domain"
 import { PlayerEvent } from "../Events/model"
 import { Move, MoveType } from "../Moves/model"
-import { Player, PlayerId } from "../Players/model"
+import { Player, PlayerId, PlayerPublicState } from "../Players/model"
 import { actionErrorOf, actionOf, ask, GameAction } from "../utils/actions"
-import { Game, GameErrorType, GameStage } from "./model"
+import { Game, GameErrorType, GamePublicState, GameStage } from "./model"
 
 const nextPlayer = (game: Game) => (game.currentPlayerIndex + 1) % game.players.length
 const isCurrentPlayer = (game: Game, playerId: PlayerId) => game.players[game.currentPlayerIndex].id === playerId
@@ -38,6 +38,19 @@ const sendEventToAllPlayers = (eventCreator: (player: Player) => PlayerEvent): G
     }),
   )
 
+const sendPlayToCurrentPlayer: GameAction = game =>
+  game.stage === GameStage.Playing
+    ? pipe(
+        ask(),
+        chain(({ playerEventDispatcher }) => {
+          const { id, hand } = currentPlayer(game)
+          const { currentTrick, stage, trickCounter } = game
+          playerEventDispatcher(id, Events.createPlayerEventPlay(hand, currentTrick, stage, trickCounter))
+          return actionOf(game)
+        }),
+      )
+    : actionOf(game)
+
 export const create = (players: Player[]) =>
   pipe(
     ask(),
@@ -56,17 +69,6 @@ export const create = (players: Player[]) =>
   )
 
 export const currentPlayer = (game: Game) => game.players[game.currentPlayerIndex]
-
-const sendPlayToCurrentPlayer: GameAction = game =>
-  pipe(
-    ask(),
-    chain(({ playerEventDispatcher }) => {
-      const { id, hand } = currentPlayer(game)
-      const { currentTrick, stage, trickCounter } = game
-      playerEventDispatcher(id, Events.createPlayerEventPlay(hand, currentTrick, stage, trickCounter))
-      return actionOf(game)
-    }),
-  )
 
 export const start: GameAction = game =>
   pipe(
@@ -155,15 +157,15 @@ const checkEndOfGame: GameAction = game =>
 const dispatchPlayerMove = (playerId: PlayerId, move: Move): GameAction => game =>
   move.type === MoveType.Card ? doPlayerCardMove(playerId, move.card)(game) : actionOf(game)
 
-const doPlayerMove = (playerId: PlayerId, move: Move): GameAction => game =>
+const doPlayerMove = (player: Player, move: Move): GameAction => game =>
   pipe(
     ask(),
     chain(({ validateMove }) =>
-      validateMove(game, playerId, move)
+      validateMove(game, player, move)
         ? pipe(
             actionOf(game),
             chain(sendEventToAllPlayers(() => Events.createPlayerEventPlayerPlayed(move))),
-            chain(dispatchPlayerMove(playerId, move)),
+            chain(dispatchPlayerMove(player.id, move)),
           )
         : gameErrorOf(GameErrorType.InvalidMove),
     ),
@@ -173,21 +175,19 @@ const doPlayerMove = (playerId: PlayerId, move: Move): GameAction => game =>
   )
 
 export const played = (playerId: PlayerId, move: Move): GameAction => game =>
-  isCurrentPlayer(game, playerId) ? doPlayerMove(playerId, move)(game) : gameErrorOf(GameErrorType.InvalidPlayer)
+  isCurrentPlayer(game, playerId)
+    ? doPlayerMove(getPlayer(game, playerId)!, move)(game)
+    : gameErrorOf(GameErrorType.InvalidPlayer)
 
 const getPlayer = (game: Game, playerId: PlayerId) => game.players.find(p => p.id === playerId)
 
 const twoOfClubs = Card.create(CardModel.Suit.Clubs, 2)
 
-const isValidCardMove = (game: Game, playerId: PlayerId, card: CardModel.Card) => {
-  const player = getPlayer(game, playerId)
-  return player
-    ? (game.trickCounter !== 0 || game.currentTrick.length > 0 || Card.equals(card, twoOfClubs)) &&
-        (game.currentTrick.length === 0 ||
-          game.currentTrick[0].suit === card.suit ||
-          player.hand.every(c => c.suit !== game.currentTrick[0].suit))
-    : false
-}
+const isValidCardMove = (gameState: GamePublicState, playerState: PlayerPublicState, card: CardModel.Card) =>
+  (gameState.trickCounter !== 0 || gameState.currentTrick.length > 0 || Card.equals(card, twoOfClubs)) &&
+  (gameState.currentTrick.length === 0 ||
+    gameState.currentTrick[0].suit === card.suit ||
+    playerState.hand.every(c => c.suit !== gameState.currentTrick[0].suit))
 
-export const isValidMove = (game: Game, playerId: PlayerId, move: Move) =>
-  move.type === MoveType.Card ? isValidCardMove(game, playerId, move.card) : false
+export const isValidMove = (gameState: GamePublicState, playerState: PlayerPublicState, move: Move) =>
+  move.type === MoveType.Card ? isValidCardMove(gameState, playerState, move.card) : false

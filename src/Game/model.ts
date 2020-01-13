@@ -1,7 +1,7 @@
 import { Trick } from "../Cards/model"
 import { Deck } from "../Dealer/model"
 import { Move } from "../Moves/model"
-import { Player, PlayerId } from "../Players/model"
+import { Player, PlayerPublicState } from "../Players/model"
 
 export const enum GameStage {
   Idle = "Idle",
@@ -32,4 +32,4 @@ export type Game = Readonly<GamePublicState & {
   deckSize: number
 }>
 
-export type MoveValidator = (game: Game, playedId: PlayerId, move: Move) => boolean
+export type MoveValidator = (gameState: GamePublicState, playerState: PlayerPublicState, move: Move) => boolean

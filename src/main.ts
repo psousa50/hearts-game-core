@@ -18,12 +18,23 @@ export const playerEventDispatcher = (playerId: PlayerId, event: PlayerEvent) =>
   console.log("Player ID => ", playerId, event.type)
 
   switch (event.type) {
+    case PlayerEventType.TrickFinished:
+      console.log(event.type, event.trick)
+      break
     case PlayerEventType.Play:
-      // const card = event.hand.filter(c => Game.isValidMove(Game.isValidMove()))
-      const move = Move.createCardMove(event.hand[0])
-      console.log("Player ID=====>\n", playerId)
-      console.log("Move=====>\n", move)
-      gameEvent = Events.createGameEventPlayerPlayed(playerId, move)
+      const validCards = event.playerState.hand.filter(card =>
+        Game.isValidMove(event.gameState, event.playerState, Move.createCardMove(card)),
+      )
+      if (validCards.length > 0) {
+        const move = Move.createCardMove(validCards[0])
+        gameEvent = Events.createGameEventPlayerPlayed(playerId, move)
+      } else {
+        console.log("NO VALID MOVE\n")
+        console.log("P=====>\n", JSON.stringify(event.playerState, null, 2))
+        console.log("=====>\n", JSON.stringify(event.gameState, null, 2))
+        throw new Error("NO VALID MOVE")
+      }
+      break
   }
 }
 

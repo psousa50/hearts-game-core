@@ -1,7 +1,7 @@
 import { Hand, Trick } from "../Cards/model"
 import { GamePublicState } from "../Game/model"
 import { Move } from "../Moves/model"
-import { PlayerId } from "../Players/model"
+import { PlayerId, PlayerPublicState } from "../Players/model"
 
 export enum PlayerEventType {
   GameStarted = "GameStarted",
@@ -36,8 +36,8 @@ export interface PlayerEventTrickFinished extends PlayerEventBase {
 
 export interface PlayerEventPlay extends PlayerEventBase {
   type: PlayerEventType.Play
-  hand: Hand
-  gamePublicState: GamePublicState
+  playerState: PlayerPublicState
+  gameState: GamePublicState
 }
 
 export type PlayerEvent =
