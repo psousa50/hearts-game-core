@@ -10,7 +10,11 @@ export interface Dealer {
 }
 
 export const createDeck = () =>
-  R.flatten(CardModel.suits.map(suit => R.range(1, CardModel.maxFaceValue + 1).map(fv => Card.create(suit, fv))))
+  R.flatten(
+    CardModel.suits.map(suit =>
+      R.range(CardModel.minFaceValue, CardModel.maxFaceValue + 1).map(fv => Card.create(suit, fv)),
+    ),
+  )
 
 export const shuffleDeck = (deck: Deck, times: number = 100) =>
   R.range(1, times + 1).reduce((acc, _) => {

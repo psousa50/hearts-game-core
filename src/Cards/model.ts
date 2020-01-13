@@ -6,7 +6,8 @@ export enum Suit {
 }
 
 export const suits = [Suit.Clubs, Suit.Diamonds, Suit.Hearts, Suit.Spades]
-export const maxFaceValue = 13
+export const minFaceValue = 2
+export const maxFaceValue = 14
 
 export type FaceValue = number
 
