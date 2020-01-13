@@ -59,6 +59,7 @@ export interface GameEventBase {
 }
 
 export interface GameEventPlayerPlayed extends GameEventBase {
+  type: GameEventType.PlayerPlayed
   move: Move
 }
 

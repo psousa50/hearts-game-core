@@ -8,6 +8,7 @@ import { GameEvent, GameEventType, PlayerEvent, PlayerEventType } from "./Events
 import * as Game from "./Game/domain"
 import { GameStage } from "./Game/model"
 import * as Move from "./Moves/domain"
+import { CardMove } from "./Moves/model"
 import * as Player from "./Players/domain"
 import { PlayerId } from "./Players/model"
 import { actionOf, GameAction } from "./utils/actions"
@@ -15,11 +16,13 @@ import { actionOf, GameAction } from "./utils/actions"
 let gameEvent: GameEvent | null = null
 
 export const playerEventDispatcher = (playerId: PlayerId, event: PlayerEvent) => {
-  console.log("Player ID => ", playerId, event.type)
+  // console.log("Player ID => ", playerId, event.type)
 
   switch (event.type) {
     case PlayerEventType.TrickFinished:
-      console.log(event.type, event.trick)
+      if (playerId === "id1") {
+        console.log(event.type, event.trick)
+      }
       break
     case PlayerEventType.Play:
       const validCards = event.playerState.hand.filter(card =>
@@ -49,10 +52,10 @@ const gameLoop: GameAction = game => {
   if (game.stage === GameStage.Ended) {
     return actionOf(game)
   } else {
-    console.log("EVENT=====>\n", gameEvent)
     if (gameEvent) {
       switch (gameEvent.type) {
         case GameEventType.PlayerPlayed:
+          console.log(`Player ${gameEvent.playerId} played ${JSON.stringify((gameEvent.move as CardMove).card, null, 2)}`)
           return pipe(actionOf(game), chain(Game.played(gameEvent.playerId, gameEvent.move)), chain(gameLoop))
       }
     }
