@@ -19,14 +19,17 @@ export type GameError = {
   type: GameErrorType
 }
 
-export type Game = Readonly<{
+export type GamePublicState = Readonly<{
+  currentTrick: Trick
+  stage: GameStage
+  trickCounter: number
+}>
+
+export type Game = Readonly<GamePublicState & {
   deck: Deck
   players: readonly Player[]
   currentPlayerIndex: number
-  currentTrick: Trick
-  stage: GameStage
   deckSize: number
-  trickCounter: number
 }>
 
 export type MoveValidator = (game: Game, playedId: PlayerId, move: Move) => boolean

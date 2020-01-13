@@ -6,6 +6,7 @@ import * as R from "ramda"
 import * as Card from "../../src/Cards/domain"
 import * as CardModel from "../../src/Cards/model"
 import { Suit } from "../../src/Cards/model"
+import * as Dealer from "../../src/Dealer/domain"
 import { Environment } from "../../src/Environment/model"
 import * as Events from "../../src/Events/domain"
 import * as Game from "../../src/Game/domain"
@@ -103,7 +104,7 @@ describe("game", () => {
       expect(dispatcher).toHaveBeenCalledWith(secondPlayer.id, Events.createPlayerEventGameStarted(player2Cards))
     })
 
-    it.only("calls 'Play' on first player", () => {
+    it("calls 'Play' on first player", () => {
       const environment = getEnvironment()
       pipe(Game.create(twoPlayers), chain(Game.start))(environment)
 
@@ -168,10 +169,32 @@ describe("game", () => {
 
       it("should move to next player", () => {
         const environment = getEnvironment()
-        const move = { some: "move" } as any
+        const move = Move.createCardMove(Card.create(Suit.Clubs, 5))
         const game = getRight(gameAfterFirstMove(environment, move))
 
-        expect(Game.currentPlayer(game).id).toBe(firstPlayer.id)
+        expect(Game.currentPlayer(game).id).toBe(secondPlayer.id)
+      })
+
+      it("should call 'Play' on next player", () => {
+        const moveCard = Card.create(Suit.Clubs, 5)
+        const card1 = Card.create(Suit.Diamonds, 9)
+        const card2 = Card.create(Suit.Hearts, 7)
+        const player2Cards = [card1, card2]
+        const environment = getEnvironment({
+          dealer: {
+            createDeck: Dealer.createDeck,
+            distributeCards: jest
+              .fn()
+              .mockImplementationOnce(() => ({ deck: [], cards: [] }))
+              .mockImplementationOnce(() => ({ deck: [], cards: player2Cards })),
+          },
+        })
+        getRight(gameAfterFirstMove(environment, Move.createCardMove(moveCard)))
+
+        expect(environment.playerEventDispatcher).toHaveBeenCalledWith(
+          secondPlayer.id,
+          Events.createPlayerEventPlay([card1, card2], [moveCard], GameStage.Playing, 0),
+        )
       })
     })
 
@@ -211,6 +234,14 @@ describe("game", () => {
         expect(dispatcher).toHaveBeenCalledWith(fourPlayers[3].id, event)
       })
 
+      it("adds current trick to winning player", () => {
+        const environment = getEnvironment()
+        const trickFinishedGame = getTrickFinishedGame(environment)
+
+        const trick = moves.map(m => m.card)
+        expect(trickFinishedGame.players[2].tricks).toEqual([trick])
+      })
+
       it("clears current trick", () => {
         const environment = getEnvironment()
         const trickFinishedGame = getTrickFinishedGame(environment)
@@ -224,23 +255,20 @@ describe("game", () => {
 
         expect(trickFinishedGame.currentPlayerIndex).toEqual(2)
       })
+
+      it("calls 'Play' on the winning player", () => {
+        const environment = getEnvironment()
+        getTrickFinishedGame(environment)
+        expect(environment.playerEventDispatcher).toHaveBeenCalledWith(
+          fourPlayers[2].id,
+          Events.createPlayerEventPlay([], [], GameStage.Ended, 1),
+        )
+      })
     })
 
     describe("When game ends", () => {
-      it("should call 'GameEnded on every player", () => {
-        const someCard = Card.create(Suit.Clubs, 5)
-        const move = Move.createCardMove(someCard)
-        const playerCards = [someCard, someCard, someCard]
-        const environment = getEnvironment({
-          dealer: {
-            createDeck: () => [someCard, someCard, someCard, someCard],
-            distributeCards: jest
-              .fn()
-              .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
-              .mockImplementationOnce(() => ({ deck: [], cards: playerCards })),
-          },
-        })
-        const finishedGame = getRight(
+      const getFinishedGame = (environment: Environment, move: MoveModels.Move) => {
+        return getRight(
           pipe(
             Game.create(twoPlayers),
             chain(Game.start),
@@ -250,8 +278,44 @@ describe("game", () => {
             chain(Game.played(secondPlayer.id, move)),
           )(environment),
         )
+      }
+
+      it("should set stage to 'GameEnded", () => {
+        const someCard = Card.create(Suit.Clubs, 5)
+        const move = Move.createCardMove(someCard)
+        const environment = getEnvironment({
+          dealer: {
+            createDeck: () => [someCard, someCard, someCard, someCard],
+          },
+        })
+        const finishedGame = getFinishedGame(environment, move)
 
         expect(finishedGame.stage).toEqual(GameStage.Ended)
+      })
+
+      it("should call 'GameEnded' on every player", () => {
+        const someCard = Card.create(Suit.Clubs, 5)
+        const move = Move.createCardMove(someCard)
+        const playerCards = [someCard, someCard]
+        const environment = getEnvironment({
+          dealer: {
+            createDeck: () => [someCard, someCard, someCard, someCard],
+            distributeCards: jest
+              .fn()
+              .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
+              .mockImplementationOnce(() => ({ deck: [], cards: playerCards })),
+          },
+        })
+        getFinishedGame(environment, move)
+
+        expect(environment.playerEventDispatcher).toHaveBeenCalledWith(
+          firstPlayer.id,
+          Events.createPlayerEventGameEnded(),
+        )
+        expect(environment.playerEventDispatcher).toHaveBeenCalledWith(
+          secondPlayer.id,
+          Events.createPlayerEventGameEnded(),
+        )
       })
     })
 

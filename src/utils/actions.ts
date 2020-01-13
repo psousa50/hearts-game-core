@@ -4,8 +4,10 @@ import { fromEither, ReaderEither, rightReader } from "fp-ts/lib/ReaderEither"
 import { Environment } from "../Environment/model"
 import { Game, GameError } from "../Game/model"
 
-export type ActionResult<R = void> = ReaderEither<Environment, GameError, R>
-export type Action<I = void, R = void> = (i: I) => ActionResult<R>
+type ActionResult<R = void> = ReaderEither<Environment, GameError, R>
+type Action<I = void, R = void> = (i: I) => ActionResult<R>
+
+export type GameResult = ActionResult<Game>
 export type GameAction = Action<Game, Game>
 
 export const ask = () => rightReader<Environment, GameError, Environment>(askReader<Environment>())
