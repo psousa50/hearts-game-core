@@ -18,6 +18,8 @@ const gameError = (type: GameErrorType) => ({
 })
 const gameErrorOf = (type: GameErrorType) => actionErrorOf<Game>(gameError(type))
 
+const twoOfClubs = Card.create(CardModel.Suit.Clubs, 2)
+
 export const findWinningTrickPlayerIndex = (trick: CardModel.Trick) => {
   const firstCard = trick[0]
   const sameSuit = trick.filter(c => c.suit === firstCard.suit)
@@ -92,8 +94,10 @@ export const start: GameAction = game =>
         ...player,
         hand: distributedCards.hands[i],
       }))
+      const currentPlayerIndex = players.findIndex(p => p.hand.some(c => Card.equals(c, twoOfClubs)))
       const nextGame = {
         ...game,
+        currentPlayerIndex: Math.max(currentPlayerIndex, 0),
         deck: distributedCards.deck,
         players,
         stage: GameStage.Playing,
@@ -180,8 +184,6 @@ export const played = (playerId: PlayerId, move: Move): GameAction => game =>
     : gameErrorOf(GameErrorType.InvalidPlayer)
 
 const getPlayer = (game: Game, playerId: PlayerId) => game.players.find(p => p.id === playerId)
-
-const twoOfClubs = Card.create(CardModel.Suit.Clubs, 2)
 
 const isValidCardMove = (gameState: GamePublicState, playerState: PlayerPublicState, card: CardModel.Card) =>
   (gameState.trickCounter !== 0 || gameState.currentTrick.length > 0 || Card.equals(card, twoOfClubs)) &&

@@ -87,8 +87,8 @@ describe("game", () => {
 
     it("calls 'Started' on every player", () => {
       const shuffledDeck = { some: "Deck" } as any
-      const player1Cards = { player1: "cards" } as any
-      const player2Cards = { player2: "cards" } as any
+      const player1Cards = [{ player1: "cards" }] as any
+      const player2Cards = [{ player2: "cards" }] as any
       const environment = getEnvironment({
         dealer: {
           distributeCards: jest
@@ -106,13 +106,25 @@ describe("game", () => {
       expect(dispatcher).toHaveBeenCalledWith(secondPlayer.id, Events.createPlayerEventGameStarted(player2Cards))
     })
 
-    it("calls 'Play' on first player", () => {
-      const environment = getEnvironment()
+    it("calls 'Play' on player that has the 2 of Clubs", () => {
+      const twoOfClubs = Card.create(Suit.Clubs, 2)
+      const otherCard = Card.create(Suit.Hearts, 7)
+      const player1Cards = [otherCard, otherCard]
+      const player2Cards = [otherCard, twoOfClubs]
+      const environment = getEnvironment({
+        dealer: {
+          createDeck: () => [otherCard, otherCard, otherCard, otherCard],
+          distributeCards: jest
+            .fn()
+            .mockImplementationOnce(() => ({ deck: [], cards: player1Cards }))
+            .mockImplementationOnce(() => ({ deck: [], cards: player2Cards })),
+        },
+      })
       pipe(Game.create(twoPlayers), chain(Game.start))(environment)
 
       expect(environment.playerEventDispatcher).toHaveBeenCalledWith(
-        firstPlayer.id,
-        Events.createPlayerEventPlay(firstPlayer.hand, [], GameStage.Playing, 0),
+        secondPlayer.id,
+        Events.createPlayerEventPlay(expect.anything(), [], GameStage.Playing, 0),
       )
     })
   })
