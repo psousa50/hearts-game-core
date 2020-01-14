@@ -1,8 +1,8 @@
 import { Card } from "../Cards/model"
 
 export const enum MoveType {
-  Card,
-  Swap,
+  Card = "Card",
+  Swap = "Swap",
 }
 
 export type CardMove = {

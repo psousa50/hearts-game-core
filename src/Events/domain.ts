@@ -1,24 +1,9 @@
-import { Hand, Trick } from "../Cards/model"
-import { GameStage } from "../Game/model"
+import { Game } from "../Game/model"
 import { Move } from "../Moves/model"
-import { PlayerId } from "../Players/model"
+import { Player, PlayerId } from "../Players/model"
 import { GameEvent, GameEventType, PlayerEvent, PlayerEventType } from "./model"
 
-export const createPlayerEventGameStarted = (initialHand: Hand): PlayerEvent => ({
-  initialHand,
-  type: PlayerEventType.GameStarted,
-})
-
-export const createPlayerEventGameEnded = (): PlayerEvent => ({
-  type: PlayerEventType.GameEnded,
-})
-
-export const createPlayerEventPlay = (
-  hand: Hand,
-  currentTrick: Trick,
-  stage: GameStage,
-  trickCounter: number,
-): PlayerEvent => ({
+const createPlayerEventBase = ({ hand, id, name }: Player, { currentTrick, stage, trickCounter }: Game) => ({
   gameState: {
     currentTrick,
     stage,
@@ -26,17 +11,40 @@ export const createPlayerEventPlay = (
   },
   playerState: {
     hand,
+    id,
+    name,
   },
+})
+
+export const createPlayerEventGameStarted = (player: Player, game: Game): PlayerEvent => ({
+  ...createPlayerEventBase(player, game),
+  type: PlayerEventType.GameStarted,
+})
+
+export const createPlayerEventGameEnded = (player: Player, game: Game): PlayerEvent => ({
+  ...createPlayerEventBase(player, game),
+  type: PlayerEventType.GameEnded,
+})
+
+export const createPlayerEventPlay = (player: Player, game: Game): PlayerEvent => ({
+  ...createPlayerEventBase(player, game),
   type: PlayerEventType.Play,
 })
 
-export const createPlayerEventPlayerPlayed = (move: Move): PlayerEvent => ({
+export const createPlayerEventPlayerPlayed = (
+  player: Player,
+  game: Game,
+  { hand, id, name}: Player,
+  move: Move,
+): PlayerEvent => ({
+  ...createPlayerEventBase(player, game),
   move,
+  playing: { hand, id, name },
   type: PlayerEventType.PlayerPlayed,
 })
 
-export const createPlayerEventTrickFinished = (trick: Trick): PlayerEvent => ({
-  trick,
+export const createPlayerEventTrickFinished = (player: Player, game: Game): PlayerEvent => ({
+  ...createPlayerEventBase(player, game),
   type: PlayerEventType.TrickFinished,
 })
 

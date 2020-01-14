@@ -21,7 +21,7 @@ export const playerEventDispatcher = (playerId: PlayerId, event: PlayerEvent) =>
   switch (event.type) {
     case PlayerEventType.TrickFinished:
       if (playerId === "id1") {
-        console.log(event.type, event.trick)
+        console.log(event.type, event.gameState.currentTrick)
       }
       break
     case PlayerEventType.Play:

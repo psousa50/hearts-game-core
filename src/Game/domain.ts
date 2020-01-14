@@ -45,9 +45,8 @@ const sendPlayToCurrentPlayer: GameAction = game =>
     ? pipe(
         ask(),
         chain(({ playerEventDispatcher }) => {
-          const { id, hand } = currentPlayer(game)
-          const { currentTrick, stage, trickCounter } = game
-          playerEventDispatcher(id, Events.createPlayerEventPlay(hand, currentTrick, stage, trickCounter))
+          const currentPlayer = getCurrentPlayer(game)
+          playerEventDispatcher(currentPlayer.id, Events.createPlayerEventPlay(currentPlayer, game))
           return actionOf(game)
         }),
       )
@@ -70,7 +69,7 @@ export const create = (players: Player[]) =>
     }),
   )
 
-export const currentPlayer = (game: Game) => game.players[game.currentPlayerIndex]
+export const getCurrentPlayer = (game: Game) => game.players[game.currentPlayerIndex]
 
 export const start: GameAction = game =>
   pipe(
@@ -104,7 +103,7 @@ export const start: GameAction = game =>
       }
       return pipe(
         actionOf(nextGame),
-        chain(sendEventToAllPlayers(player => Events.createPlayerEventGameStarted(player.hand))),
+        chain(sendEventToAllPlayers(player => Events.createPlayerEventGameStarted(player, nextGame))),
         chain(sendPlayToCurrentPlayer),
       )
     }),
@@ -128,18 +127,19 @@ const doPlayerCardMove = (playerId: PlayerId, card: CardModel.Card): GameAction 
 
 const doTrickFinished: GameAction = game => {
   const winningTrickPlayedIndex = findWinningTrickPlayerIndex(game.currentTrick)
+  const winningPlayer = game.players[winningTrickPlayedIndex]
   return pipe(
     actionOf({
       ...game,
       currentPlayerIndex: winningTrickPlayedIndex,
       currentTrick: [],
-      players: replacePlayer(game.players, game.players[winningTrickPlayedIndex].id, p => ({
+      players: replacePlayer(game.players, winningPlayer.id, p => ({
         ...p,
         tricks: [...p.tricks, game.currentTrick],
       })),
       trickCounter: game.trickCounter + 1,
     }),
-    chain(sendEventToAllPlayers(() => Events.createPlayerEventTrickFinished(game.currentTrick))),
+    chain(sendEventToAllPlayers(player => Events.createPlayerEventTrickFinished(player, game))),
   )
 }
 
@@ -152,14 +152,14 @@ const doEndOfGame: GameAction = game =>
       ...game,
       stage: GameStage.Ended,
     }),
-    chain(sendEventToAllPlayers(() => Events.createPlayerEventGameEnded())),
+    chain(newGame => sendEventToAllPlayers(player => Events.createPlayerEventGameEnded(player, newGame))(newGame)),
   )
 
 const checkEndOfGame: GameAction = game =>
   game.trickCounter === game.deckSize / game.players.length ? doEndOfGame(game) : actionOf(game)
 
 const dispatchPlayerMove = (playerId: PlayerId, move: Move): GameAction => game =>
-  move.type === MoveType.Card ? doPlayerCardMove(playerId, move.card)(game) : actionOf(game)
+ move.type === MoveType.Card ? doPlayerCardMove(playerId, move.card)(game) : actionOf(game)
 
 const doPlayerMove = (player: Player, move: Move): GameAction => game =>
   pipe(
@@ -168,7 +168,7 @@ const doPlayerMove = (player: Player, move: Move): GameAction => game =>
       validateMove(game, player, move)
         ? pipe(
             actionOf(game),
-            chain(sendEventToAllPlayers(() => Events.createPlayerEventPlayerPlayed(move))),
+            chain(sendEventToAllPlayers(p => Events.createPlayerEventPlayerPlayed(p, game, player, move))),
             chain(dispatchPlayerMove(player.id, move)),
           )
         : gameErrorOf(GameErrorType.InvalidMove),

@@ -3,5 +3,5 @@ import { CardMove, MoveType } from "./model"
 
 export const createCardMove = (card: Card): CardMove => ({
   card,
-  type: MoveType.Card,
+  type: MoveType.Card as MoveType.Card,
 })

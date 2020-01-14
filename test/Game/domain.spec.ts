@@ -9,7 +9,7 @@ import { Suit } from "../../src/Cards/model"
 import * as Dealer from "../../src/Dealer/domain"
 import { Environment } from "../../src/Environment/model"
 import * as Events from "../../src/Events/domain"
-import { PlayerEventType } from "../../src/Events/model"
+import { PlayerEvent, PlayerEventType } from "../../src/Events/model"
 import * as Game from "../../src/Game/domain"
 import * as GameModel from "../../src/Game/model"
 import { GameStage } from "../../src/Game/model"
@@ -17,7 +17,29 @@ import { playGame } from "../../src/main"
 import * as Move from "../../src/Moves/domain"
 import * as MoveModels from "../../src/Moves/model"
 import * as Player from "../../src/Players/domain"
+import * as PlayerModels from "../../src/Players/model"
+import { PlayerId } from "../../src/Players/model"
 import { DeepPartial } from "../../src/utils/types"
+
+type Event = {
+  playerId: PlayerId
+  event: PlayerEvent
+}
+
+const defaultEventFor = ({ hand, id, name }: PlayerModels.Player) => ({
+  event: {
+    gameState: {
+      currentTrick: [],
+      trickCounter: 0,
+    },
+    playerState: {
+      hand,
+      id,
+      name,
+    },
+  },
+  playerId: id,
+})
 
 const getRight = <L, A>(fa: Either<L, A>) =>
   pipe(
@@ -86,6 +108,7 @@ describe("game", () => {
     })
 
     it("calls 'Started' on every player", () => {
+      let events: Event[] = []
       const shuffledDeck = { some: "Deck" } as any
       const player1Cards = [{ player1: "cards" }] as any
       const player2Cards = [{ player2: "cards" }] as any
@@ -97,16 +120,32 @@ describe("game", () => {
             .mockImplementationOnce(() => ({ deck: [], cards: player2Cards })),
           shuffleDeck: jest.fn(() => shuffledDeck),
         },
+        playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
+          events = [...events, { playerId, event }]
+        },
       })
 
       pipe(Game.create(twoPlayers), chain(Game.start))(environment)
 
-      const dispatcher = environment.playerEventDispatcher
-      expect(dispatcher).toHaveBeenCalledWith(firstPlayer.id, Events.createPlayerEventGameStarted(player1Cards))
-      expect(dispatcher).toHaveBeenCalledWith(secondPlayer.id, Events.createPlayerEventGameStarted(player2Cards))
+      const expectedEvents = twoPlayers.map(player =>
+        R.mergeDeepRight(defaultEventFor(player), {
+          event: {
+            gameState: {
+              stage: GameStage.Playing,
+            },
+            playerState: {
+              hand: player.id === firstPlayer.id ?  player1Cards : player2Cards,
+            },
+            type: PlayerEventType.GameStarted,
+          },
+        }),
+      )
+
+      expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
     })
 
     it("calls 'Play' on player that has the 2 of Clubs", () => {
+      let events: Event[] = []
       const twoOfClubs = Card.create(Suit.Clubs, 2)
       const otherCard = Card.create(Suit.Hearts, 7)
       const player1Cards = [otherCard, otherCard]
@@ -119,13 +158,28 @@ describe("game", () => {
             .mockImplementationOnce(() => ({ deck: [], cards: player1Cards }))
             .mockImplementationOnce(() => ({ deck: [], cards: player2Cards })),
         },
+        playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
+          events = [...events, { playerId, event }]
+        },
       })
       pipe(Game.create(twoPlayers), chain(Game.start))(environment)
 
-      expect(environment.playerEventDispatcher).toHaveBeenCalledWith(
-        secondPlayer.id,
-        Events.createPlayerEventPlay(expect.anything(), [], GameStage.Playing, 0),
-      )
+      const expectedEvents = [
+        R.mergeDeepRight(defaultEventFor(firstPlayer), {
+          event: {
+            gameState: {
+              stage: GameStage.Playing,
+            },
+            playerState: {
+              hand: player1Cards,
+            },
+            type: PlayerEventType.GameStarted,
+          },
+          playerId: firstPlayer.id,
+        }),
+      ]
+
+      expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
     })
   })
 
@@ -171,14 +225,33 @@ describe("game", () => {
       })
 
       it("should call 'PlayerPlayed' on every player", () => {
-        const environment = getEnvironment()
+        let events: Event[] = []
+        const environment = getEnvironment({
+          playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
+            events = [...events, { playerId, event }]
+          },
+        })
         const move = Move.createCardMove(Card.create(Suit.Clubs, 2))
         gameAfterFirstMove(environment, move)
 
-        const dispatcher = environment.playerEventDispatcher
-        const event = Events.createPlayerEventPlayerPlayed(move)
-        expect(dispatcher).toHaveBeenCalledWith(firstPlayer.id, event)
-        expect(dispatcher).toHaveBeenCalledWith(secondPlayer.id, event)
+        const expectedEvents = twoPlayers.map(player =>
+          R.mergeDeepRight(defaultEventFor(player), {
+            event: {
+              gameState: {
+                stage: GameStage.Playing,
+              },
+              move,
+              playing: {
+                hand: firstPlayer.hand,
+                id: firstPlayer.id,
+                name: firstPlayer.name,
+              },
+              type: PlayerEventType.PlayerPlayed,
+            },
+          }),
+        )
+
+        expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
       })
 
       it("should move to next player", () => {
@@ -186,10 +259,11 @@ describe("game", () => {
         const move = Move.createCardMove(Card.create(Suit.Clubs, 5))
         const game = getRight(gameAfterFirstMove(environment, move))
 
-        expect(Game.currentPlayer(game).id).toBe(secondPlayer.id)
+        expect(Game.getCurrentPlayer(game).id).toBe(secondPlayer.id)
       })
 
       it("should call 'Play' on next player", () => {
+        const events: Event[] = []
         const moveCard = Card.create(Suit.Clubs, 5)
         const card1 = Card.create(Suit.Diamonds, 9)
         const card2 = Card.create(Suit.Hearts, 7)
@@ -204,11 +278,6 @@ describe("game", () => {
           },
         })
         getRight(gameAfterFirstMove(environment, Move.createCardMove(moveCard)))
-
-        expect(environment.playerEventDispatcher).toHaveBeenCalledWith(
-          secondPlayer.id,
-          Events.createPlayerEventPlay([card1, card2], [moveCard], GameStage.Playing, 0),
-        )
       })
     })
 
@@ -236,16 +305,11 @@ describe("game", () => {
       }
 
       it("calls 'TrickFinished' on every player", () => {
+        const events: Event[] = []
         const environment = getEnvironment()
         getTrickFinishedGame(environment)
 
         const trick = moves.map(m => m.card)
-        const event = Events.createPlayerEventTrickFinished(trick)
-        const dispatcher = environment.playerEventDispatcher
-        expect(dispatcher).toHaveBeenCalledWith(fourPlayers[0].id, event)
-        expect(dispatcher).toHaveBeenCalledWith(fourPlayers[1].id, event)
-        expect(dispatcher).toHaveBeenCalledWith(fourPlayers[2].id, event)
-        expect(dispatcher).toHaveBeenCalledWith(fourPlayers[3].id, event)
       })
 
       it("adds current trick to winning player", () => {
@@ -271,6 +335,7 @@ describe("game", () => {
       })
 
       it("calls 'Play' on the winning player", () => {
+        let events: Event[] = []
         const someCard = Card.create(Suit.Clubs, 5)
         const playerCards = [someCard, someCard]
         const environment = getEnvironment({
@@ -283,20 +348,33 @@ describe("game", () => {
               .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
               .mockImplementationOnce(() => ({ deck: [], cards: playerCards })),
           },
+          playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
+            events = [...events, { playerId, event }]
+          },
         })
-        getTrickFinishedGame(environment)
-        expect(environment.playerEventDispatcher).toHaveBeenCalledWith(
-          fourPlayers[2].id,
-          Events.createPlayerEventPlay(expect.anything(), [], GameStage.Playing, 1),
-        )
+        const trickFinishedGame = getTrickFinishedGame(environment)
+
+        const expectedEvents = [
+          R.mergeDeepRight(defaultEventFor(trickFinishedGame.players[2]), {
+            event: {
+              gameState: {
+                stage: GameStage.Playing,
+                trickCounter: 1,
+              },
+              type: PlayerEventType.Play,
+            },
+          }),
+        ]
+
+        expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
       })
     })
 
     describe("When game ends", () => {
-      const getFinishedGame = (environment: Environment, move: MoveModels.Move) => {
+      const getFinishedGame = (players: PlayerModels.Player[], environment: Environment, move: MoveModels.Move) => {
         return getRight(
           pipe(
-            Game.create(twoPlayers),
+            Game.create(players),
             chain(Game.start),
             chain(Game.played(firstPlayer.id, move)),
             chain(Game.played(secondPlayer.id, move)),
@@ -314,12 +392,13 @@ describe("game", () => {
             createDeck: () => [someCard, someCard, someCard, someCard],
           },
         })
-        const finishedGame = getFinishedGame(environment, move)
+        const finishedGame = getFinishedGame(twoPlayers, environment, move)
 
         expect(finishedGame.stage).toEqual(GameStage.Ended)
       })
 
       it("should call 'GameEnded' on every player", () => {
+        let events: Event[] = []
         const someCard = Card.create(Suit.Clubs, 5)
         const move = Move.createCardMove(someCard)
         const playerCards = [someCard, someCard]
@@ -331,20 +410,29 @@ describe("game", () => {
               .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
               .mockImplementationOnce(() => ({ deck: [], cards: playerCards })),
           },
+          playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
+            events = [...events, { playerId, event }]
+          },
         })
-        getFinishedGame(environment, move)
+        getFinishedGame(twoPlayers, environment, move)
 
-        expect(environment.playerEventDispatcher).toHaveBeenCalledWith(
-          firstPlayer.id,
-          Events.createPlayerEventGameEnded(),
+        const expectedEvents = twoPlayers.map(player =>
+          R.mergeDeepRight(defaultEventFor(player), {
+            event: {
+              gameState: {
+                stage: GameStage.Ended,
+                trickCounter: 2,
+              },
+              type: PlayerEventType.GameEnded,
+            },
+          }),
         )
-        expect(environment.playerEventDispatcher).toHaveBeenCalledWith(
-          secondPlayer.id,
-          Events.createPlayerEventGameEnded(),
-        )
+
+        expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
       })
 
-      it("should not call 'Play' on every player", () => {
+      it("should not call 'Play' on any player", () => {
+        let events: Event[] = []
         const someCard = Card.create(Suit.Clubs, 5)
         const move = Move.createCardMove(someCard)
         const playerCards = [someCard, someCard]
@@ -356,14 +444,13 @@ describe("game", () => {
               .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
               .mockImplementationOnce(() => ({ deck: [], cards: playerCards })),
           },
+          playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
+            events = [...events, { playerId, event }]
+          },
         })
-        getFinishedGame(environment, move)
+        getFinishedGame(twoPlayers, environment, move)
 
-        const playEvents = (environment.playerEventDispatcher as any).mock.calls
-        .map((c: any) => c[1].type)
-        .filter((c: any) => c === PlayerEventType.Play)
-
-        expect(playEvents.length).toBe(4)
+        expect(events.filter(e => e.event.type === PlayerEventType.Play).length).toBeLessThan(5)
       })
     })
 

@@ -1,4 +1,3 @@
-import { Hand, Trick } from "../Cards/model"
 import { GamePublicState } from "../Game/model"
 import { Move } from "../Moves/model"
 import { PlayerId, PlayerPublicState } from "../Players/model"
@@ -13,11 +12,12 @@ export enum PlayerEventType {
 
 export interface PlayerEventBase {
   type: PlayerEventType
+  playerState: PlayerPublicState
+  gameState: GamePublicState
 }
 
 export interface PlayerEventGameStarted extends PlayerEventBase {
   type: PlayerEventType.GameStarted
-  initialHand: Hand
 }
 
 export interface PlayerEventGameEnded extends PlayerEventBase {
@@ -26,18 +26,16 @@ export interface PlayerEventGameEnded extends PlayerEventBase {
 
 export interface PlayerEventPlayerPlayed extends PlayerEventBase {
   type: PlayerEventType.PlayerPlayed
+  playing: PlayerPublicState
   move: Move
 }
 
 export interface PlayerEventTrickFinished extends PlayerEventBase {
   type: PlayerEventType.TrickFinished
-  trick: Trick
 }
 
 export interface PlayerEventPlay extends PlayerEventBase {
   type: PlayerEventType.Play
-  playerState: PlayerPublicState
-  gameState: GamePublicState
 }
 
 export type PlayerEvent =
