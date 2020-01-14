@@ -23,6 +23,7 @@ export type GamePublicState = Readonly<{
   currentTrick: Trick
   stage: GameStage
   trickCounter: number
+  heartsHasBeenDrawn: boolean
 }>
 
 export type Game = Readonly<GamePublicState & {

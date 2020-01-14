@@ -62,6 +62,7 @@ export const create = (players: Player[]) =>
         currentTrick: [],
         deck,
         deckSize: deck.length,
+        heartsHasBeenDrawn: false,
         players,
         stage: GameStage.Idle,
         trickCounter: 0,
@@ -122,6 +123,7 @@ const doPlayerCardMove = (playerId: PlayerId, card: CardModel.Card): GameAction 
     ...game,
     currentPlayerIndex: nextPlayer(game),
     currentTrick: [...game.currentTrick, card],
+    heartsHasBeenDrawm: game.heartsHasBeenDrawn || card.suit === CardModel.Suit.Hearts,
     players: replacePlayer(game.players, playerId, removeCardFromHand(card)),
   })
 
@@ -159,7 +161,7 @@ const checkEndOfGame: GameAction = game =>
   game.trickCounter === game.deckSize / game.players.length ? doEndOfGame(game) : actionOf(game)
 
 const dispatchPlayerMove = (playerId: PlayerId, move: Move): GameAction => game =>
- move.type === MoveType.Card ? doPlayerCardMove(playerId, move.card)(game) : actionOf(game)
+  move.type === MoveType.Card ? doPlayerCardMove(playerId, move.card)(game) : actionOf(game)
 
 const doPlayerMove = (player: Player, move: Move): GameAction => game =>
   pipe(
@@ -187,6 +189,9 @@ const getPlayer = (game: Game, playerId: PlayerId) => game.players.find(p => p.i
 
 const isValidCardMove = (gameState: GamePublicState, playerState: PlayerPublicState, card: CardModel.Card) =>
   (gameState.trickCounter !== 0 || gameState.currentTrick.length > 0 || Card.equals(card, twoOfClubs)) &&
+  (card.suit !== CardModel.Suit.Hearts ||
+    gameState.heartsHasBeenDrawn ||
+    playerState.hand.every(c => c.suit === CardModel.Suit.Hearts)) &&
   (gameState.currentTrick.length === 0 ||
     gameState.currentTrick[0].suit === card.suit ||
     playerState.hand.every(c => c.suit !== gameState.currentTrick[0].suit))

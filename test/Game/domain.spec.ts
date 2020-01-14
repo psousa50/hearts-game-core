@@ -30,6 +30,7 @@ const defaultEventFor = ({ hand, id, name }: PlayerModels.Player) => ({
   event: {
     gameState: {
       currentTrick: [],
+      heartsHasBeenDrawn: false,
       trickCounter: 0,
     },
     playerState: {
@@ -134,7 +135,7 @@ describe("game", () => {
               stage: GameStage.Playing,
             },
             playerState: {
-              hand: player.id === firstPlayer.id ?  player1Cards : player2Cards,
+              hand: player.id === firstPlayer.id ? player1Cards : player2Cards,
             },
             type: PlayerEventType.GameStarted,
           },
@@ -492,45 +493,68 @@ describe("game", () => {
   })
 
   describe("Moves are", () => {
-    const startGame = ({ player2Hand: player2Hand }: { player2Hand: CardModel.Card[] } = { player2Hand: [] }) => {
-      const game = getRight(pipe(Game.create(twoPlayers), chain(Game.start))(getEnvironment()))
-      const player2 = game.players[1]
-      return {
-        ...game,
-        players: [game.players[0], { ...player2, hand: player2Hand }],
-      }
-    }
-
-    const playCard = (game: GameModel.Game, card: CardModel.Card) => {
-      const move = Move.createCardMove(card)
-      return getRight(Game.played(firstPlayer.id, move)(game)(getEnvironment()))
-    }
+    const twoOfClubs = Card.create(CardModel.Suit.Clubs, 2)
+    const twoOfClubsMove = Move.createCardMove(Card.create(CardModel.Suit.Clubs, 2))
 
     describe("valid if", () => {
       it("suit is the same as the first card", () => {
-        const game = playCard(startGame(), Card.create(Suit.Clubs, 2))
+        const game = getRight(
+          pipe(
+            Game.create(twoPlayers),
+            chain(Game.start),
+            chain(Game.played(firstPlayer.id, Move.createCardMove(Card.create(Suit.Clubs, 2)))),
+          )(getEnvironment()),
+        )
         const validMove = Move.createCardMove(Card.create(Suit.Clubs, 3))
 
         expect(Game.isValidMove(game, secondPlayer, validMove)).toBeTruthy()
       })
 
       it("suit is different but player has no card of the same suit", () => {
-        const firstCard = Card.create(Suit.Hearts, 3)
-        const moveCard = Card.create(Suit.Clubs, 3)
-        const validMove = Move.createCardMove(moveCard)
-        const otherCard = Card.create(Suit.Spades, 3)
-        const player2Cards = [moveCard, otherCard]
-        const game = playCard(startGame({ player2Hand: player2Cards }), firstCard)
+        const game = getRight(
+          pipe(
+            Game.create(twoPlayers),
+            chain(Game.start),
+            chain(Game.played(firstPlayer.id, twoOfClubsMove)),
+          )(getEnvironment()),
+        )
+        const validMove = Move.createCardMove(Card.create(Suit.Clubs, 3))
+        const player = { hand: [Card.create(Suit.Hearts, 5)] } as any
 
-        expect(Game.isValidMove(game, secondPlayer, validMove)).toBeTruthy()
+        expect(Game.isValidMove(game, player, validMove)).toBeTruthy()
+      })
+
+      it("first card is Hearts and hearts has not been drawn yet but player has no other suit", () => {
+        const game = getRight(
+          pipe(
+            Game.create(twoPlayers),
+            chain(Game.played(firstPlayer.id, twoOfClubsMove)),
+            chain(Game.played(secondPlayer.id, Move.createCardMove(Card.create(CardModel.Suit.Clubs, 5)))),
+          )(getEnvironment()),
+        )
+        const player = { hand: [Card.create(Suit.Hearts, 5)] } as any
+        const heartsCard = Card.create(Suit.Hearts, 3)
+        const validMove = Move.createCardMove(heartsCard)
+
+        expect(Game.isValidMove(game, player, validMove)).toBeTruthy()
       })
     })
 
     describe("invalid if", () => {
       it("first trick card is not the 2 of clubs", () => {
-        const game = startGame()
         const not2OfClubs = Card.create(Suit.Clubs, 3)
         const invalidMove = Move.createCardMove(not2OfClubs)
+
+        const game = getRight(Game.create(twoPlayers)(getEnvironment()))
+        expect(Game.isValidMove(game, firstPlayer, invalidMove)).toBeFalsy()
+      })
+
+      it("first card is Hearts but hearts has not been drawn yet", () => {
+        const game = getRight(Game.create(twoPlayers)(getEnvironment()))
+
+        const heartsCard = Card.create(Suit.Hearts, 3)
+        const invalidMove = Move.createCardMove(heartsCard)
+
         expect(Game.isValidMove(game, firstPlayer, invalidMove)).toBeFalsy()
       })
     })
