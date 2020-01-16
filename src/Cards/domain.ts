@@ -1,4 +1,4 @@
-import { Card, FaceValue, Suit } from "./model"
+import { Card, FaceValue, Suit, suitOrder } from "./model"
 
 export const create = (suit: Suit, faceValue: FaceValue) => ({
   faceValue,
