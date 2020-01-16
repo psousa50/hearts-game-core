@@ -3,13 +3,13 @@ import { Deck } from "../Dealer/model"
 import { Move } from "../Moves/model"
 import { Player, PlayerPublicState } from "../Players/model"
 
-export const enum GameStage {
+export enum GameStage {
   Idle = "Idle",
   Playing = "Playing",
   Ended = "Ended",
 }
 
-export const enum GameErrorType {
+export enum GameErrorType {
   InvalidPlayer = "InvalidPlayer",
   PlayerNotFound = "PlayerNotFound",
   InvalidMove = "InvalidMove",

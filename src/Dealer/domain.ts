@@ -23,6 +23,9 @@ export const shuffleDeck = (deck: Deck, times: number = 100) =>
   }, deck)
 
 export const distributeCards = (deck: Deck, count: number) => ({
-  cards: deck.slice(0, count),
-  deck: deck.slice(count),
-})
+    cards: sortCards(deck.slice(0, count)),
+    deck: deck.slice(count),
+  })
+
+export const sortCards = (cards: CardModel.Card[]) =>
+    R.sort(Card.order, cards)

@@ -1,6 +1,6 @@
 import { Card } from "../Cards/model"
 
-export const enum MoveType {
+export enum MoveType {
   Card = "Card",
   Swap = "Swap",
 }

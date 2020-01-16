@@ -5,6 +5,13 @@ export enum Suit {
   Spades = "Spades",
 }
 
+export const suitOrder = {
+  [Suit.Hearts]: 0,
+  [Suit.Clubs]: 1,
+  [Suit.Diamonds]: 2,
+  [Suit.Spades]: 3,
+}
+
 export const suits = [Suit.Clubs, Suit.Diamonds, Suit.Hearts, Suit.Spades]
 export const minFaceValue = 2
 export const maxFaceValue = 14
