@@ -264,7 +264,7 @@ describe("game", () => {
       })
 
       it("should call 'Play' on next player", () => {
-        const events: Event[] = []
+        let events: Event[] = []
         const moveCard = Card.create(Suit.Clubs, 5)
         const card1 = Card.create(Suit.Diamonds, 9)
         const card2 = Card.create(Suit.Hearts, 7)
@@ -277,8 +277,29 @@ describe("game", () => {
               .mockImplementationOnce(() => ({ deck: [], cards: [] }))
               .mockImplementationOnce(() => ({ deck: [], cards: player2Cards })),
           },
+          playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
+            events = [...events, { playerId, event }]
+          },
         })
-        getRight(gameAfterFirstMove(environment, Move.createCardMove(moveCard)))
+        gameAfterFirstMove(environment, Move.createCardMove(moveCard))
+
+        const expectedEvents = [
+          R.mergeDeepRight(defaultEventFor(secondPlayer), {
+            event: {
+              gameState: {
+                currentTrick: [moveCard],
+                stage: GameStage.Playing,
+              },
+              playerState: {
+                hand: player2Cards,
+              },
+              type: PlayerEventType.Play,
+            },
+            playerId: secondPlayer.id,
+          }),
+        ]
+
+        expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
       })
     })
 
@@ -306,11 +327,29 @@ describe("game", () => {
       }
 
       it("calls 'TrickFinished' on every player", () => {
-        const events: Event[] = []
-        const environment = getEnvironment()
+        let events: Event[] = []
+        const environment = getEnvironment({
+          playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
+            events = [...events, { playerId, event }]
+          },
+        })
         getTrickFinishedGame(environment)
 
         const trick = moves.map(m => m.card)
+
+        const expectedEvents = fourPlayers.map(player =>
+          R.mergeDeepRight(defaultEventFor(player), {
+            event: {
+              gameState: {
+                currentTrick: trick,
+                stage: GameStage.Ended,
+              },
+              type: PlayerEventType.TrickFinished,
+            },
+          }),
+        )
+
+        expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
       })
 
       it("adds current trick to winning player", () => {
