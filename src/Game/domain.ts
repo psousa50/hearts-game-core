@@ -190,9 +190,8 @@ const getPlayer = (game: Game, playerId: PlayerId) => game.players.find(p => p.i
 
 const isValidCardMove = (gameState: GamePublicState, playerState: PlayerPublicState, card: CardModel.Card) =>
   (gameState.trickCounter !== 0 || gameState.currentTrick.length > 0 || Card.equals(card, twoOfClubs)) &&
-  (card.suit !== CardModel.Suit.Hearts ||
-    gameState.heartsHasBeenDrawn ||
-    playerState.hand.every(c => c.suit === CardModel.Suit.Hearts)) &&
+  (gameState.currentTrick.length !== 0 || card.suit !== CardModel.Suit.Hearts ||
+    gameState.heartsHasBeenDrawn) &&
   (gameState.currentTrick.length === 0 ||
     gameState.currentTrick[0].suit === card.suit ||
     playerState.hand.every(c => c.suit !== gameState.currentTrick[0].suit))

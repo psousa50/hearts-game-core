@@ -554,7 +554,6 @@ describe("game", () => {
   })
 
   describe("Moves are", () => {
-    const twoOfClubs = Card.create(CardModel.Suit.Clubs, 2)
     const twoOfClubsMove = Move.createCardMove(Card.create(CardModel.Suit.Clubs, 2))
 
     describe("valid if", () => {
@@ -585,15 +584,14 @@ describe("game", () => {
         expect(Game.isValidMove(game, player, validMove)).toBeTruthy()
       })
 
-      it("first card is Hearts and hearts has not been drawn yet but player has no other suit", () => {
+      it("card is Hearts and hearts has not been drawn yet but player does not have starting suit", () => {
         const game = getRight(
           pipe(
             Game.create(twoPlayers),
             chain(Game.played(firstPlayer.id, twoOfClubsMove)),
-            chain(Game.played(secondPlayer.id, Move.createCardMove(Card.create(CardModel.Suit.Clubs, 5)))),
           )(getEnvironment()),
         )
-        const player = { hand: [Card.create(Suit.Hearts, 5)] } as any
+        const player = { hand: [Card.create(Suit.Diamonds, 5)] } as any
         const heartsCard = Card.create(Suit.Hearts, 3)
         const validMove = Move.createCardMove(heartsCard)
 
