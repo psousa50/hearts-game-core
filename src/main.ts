@@ -42,6 +42,9 @@ export const playerEventDispatcher = (playerId: PlayerId, event: PlayerEvent) =>
 }
 
 export const environment: Environment = {
+  config: {
+    auto: false,
+  },
   dealer: Dealer,
   playerEventDispatcher,
   validateMove: () => true,

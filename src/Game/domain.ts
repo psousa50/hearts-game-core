@@ -41,17 +41,11 @@ const sendEventToAllPlayers = (eventCreator: (player: Player) => PlayerEvent): G
     }),
   )
 
-const sendPlayToCurrentPlayer: GameAction = game =>
-  game.stage === GameStage.Playing
-    ? pipe(
-        ask(),
-        chain(({ playerEventDispatcher }) => {
-          const currentPlayer = getCurrentPlayer(game)
-          playerEventDispatcher(currentPlayer.id, Events.createPlayerEventPlay(currentPlayer, game))
-          return actionOf(game)
-        }),
-      )
-    : actionOf(game)
+const sendPlayToCurrentPlayerIfAuto: GameAction = game =>
+  pipe(
+    ask(),
+    chain(({ config }) => (config.auto ? nextPlay(game) : actionOf(game))),
+  )
 
 export const create = (players: Player[]) =>
   pipe(
@@ -106,10 +100,22 @@ export const start: GameAction = game =>
       return pipe(
         actionOf(nextGame),
         chain(sendEventToAllPlayers(player => Events.createPlayerEventGameStarted(player, nextGame))),
-        chain(sendPlayToCurrentPlayer),
+        chain(sendPlayToCurrentPlayerIfAuto),
       )
     }),
   )
+
+export const nextPlay: GameAction = game =>
+  game.stage === GameStage.Playing
+    ? pipe(
+        ask(),
+        chain(({ playerEventDispatcher }) => {
+          const currentPlayer = getCurrentPlayer(game)
+          playerEventDispatcher(currentPlayer.id, Events.createPlayerEventPlay(currentPlayer, game))
+          return actionOf(game)
+        }),
+      )
+    : actionOf(game)
 
 const removeCardFromHand = (card: CardModel.Card) => (player: Player) => ({
   ...player,
@@ -178,7 +184,7 @@ const doPlayerMove = (player: Player, move: Move): GameAction => game =>
     ),
     chain(checkTrickFinished),
     chain(checkEndOfGame),
-    chain(sendPlayToCurrentPlayer),
+    chain(sendPlayToCurrentPlayerIfAuto),
   )
 
 export const played = (playerId: PlayerId, move: Move): GameAction => game =>
@@ -190,8 +196,7 @@ const getPlayer = (game: Game, playerId: PlayerId) => game.players.find(p => p.i
 
 const isValidCardMove = (gameState: GamePublicState, playerState: PlayerPublicState, card: CardModel.Card) =>
   (gameState.trickCounter !== 0 || gameState.currentTrick.length > 0 || Card.equals(card, twoOfClubs)) &&
-  (gameState.currentTrick.length !== 0 || card.suit !== CardModel.Suit.Hearts ||
-    gameState.heartsHasBeenDrawn) &&
+  (gameState.currentTrick.length !== 0 || card.suit !== CardModel.Suit.Hearts || gameState.heartsHasBeenDrawn) &&
   (gameState.currentTrick.length === 0 ||
     gameState.currentTrick[0].suit === card.suit ||
     playerState.hand.every(c => c.suit !== gameState.currentTrick[0].suit))
