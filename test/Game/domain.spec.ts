@@ -308,7 +308,7 @@ describe("game", () => {
         Move.createCardMove(Card.create(Suit.Clubs, 3)),
         Move.createCardMove(Card.create(Suit.Clubs, 2)),
         Move.createCardMove(Card.create(Suit.Clubs, 8)),
-        Move.createCardMove(Card.create(Suit.Hearts, 10)),
+        Move.createCardMove(Card.create(Suit.Diamonds, 10)),
       ]
 
       const getTrickFinishedGame = (environment: Environment) => {
@@ -582,6 +582,21 @@ describe("game", () => {
         const player = { hand: [Card.create(Suit.Hearts, 5)] } as any
 
         expect(Game.isValidMove(game, player, validMove)).toBeTruthy()
+      })
+
+      it("first card is Hearts but hearts as already been drawn", () => {
+        const game = getRight(
+          pipe(
+            Game.create(twoPlayers),
+            chain(Game.played(firstPlayer.id, twoOfClubsMove)),
+            chain(Game.played(secondPlayer.id, Move.createCardMove( Card.create(Suit.Hearts, 5)))),
+          )(getEnvironment()),
+        )
+
+        const heartsCard = Card.create(Suit.Hearts, 3)
+        const validMove = Move.createCardMove(heartsCard)
+
+        expect(Game.isValidMove(game, firstPlayer, validMove)).toBeTruthy()
       })
 
       it("card is Hearts and hearts has not been drawn yet but player does not have starting suit", () => {

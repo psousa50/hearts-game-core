@@ -124,7 +124,7 @@ const doPlayerCardMove = (playerId: PlayerId, card: CardModel.Card): GameAction 
     ...game,
     currentPlayerIndex: nextPlayer(game),
     currentTrick: [...game.currentTrick, card],
-    heartsHasBeenDrawm: game.heartsHasBeenDrawn || card.suit === CardModel.Suit.Hearts,
+    heartsHasBeenDrawn: game.heartsHasBeenDrawn || card.suit === CardModel.Suit.Hearts,
     players: replacePlayer(game.players, playerId, removeCardFromHand(card)),
   })
 
