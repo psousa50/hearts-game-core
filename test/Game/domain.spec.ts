@@ -305,8 +305,8 @@ describe("game", () => {
 
     describe("When trick finishes", () => {
       const moves = [
-        Move.createCardMove(Card.create(Suit.Clubs, 5)),
         Move.createCardMove(Card.create(Suit.Clubs, 3)),
+        Move.createCardMove(Card.create(Suit.Clubs, 2)),
         Move.createCardMove(Card.create(Suit.Clubs, 8)),
         Move.createCardMove(Card.create(Suit.Hearts, 10)),
       ]
@@ -314,15 +314,26 @@ describe("game", () => {
       const getTrickFinishedGame = (environment: Environment) => {
         const game = Game.create(fourPlayers)
 
+        const env = R.mergeDeepRight(environment, {
+          dealer: {
+            distributeCards: jest
+              .fn()
+              .mockImplementationOnce(() => ({ deck: [], cards: [moves[0].card] }))
+              .mockImplementationOnce(() => ({ deck: [], cards: [moves[1].card] }))
+              .mockImplementationOnce(() => ({ deck: [], cards: [moves[2].card] }))
+              .mockImplementationOnce(() => ({ deck: [], cards: [moves[3].card] })),
+          },
+        })
+
         return getRight(
           pipe(
             game,
             chain(Game.start),
-            chain(Game.played(fourPlayers[0].id, moves[0])),
             chain(Game.played(fourPlayers[1].id, moves[1])),
             chain(Game.played(fourPlayers[2].id, moves[2])),
             chain(Game.played(fourPlayers[3].id, moves[3])),
-          )(environment),
+            chain(Game.played(fourPlayers[0].id, moves[0])),
+          )(env),
         )
       }
 
@@ -335,7 +346,7 @@ describe("game", () => {
         })
         getTrickFinishedGame(environment)
 
-        const trick = moves.map(m => m.card)
+        const trick = [moves[1].card, moves[2].card, moves[3].card, moves[0].card]
 
         const expectedEvents = fourPlayers.map(player =>
           R.mergeDeepRight(defaultEventFor(player), {
@@ -356,7 +367,8 @@ describe("game", () => {
         const environment = getEnvironment()
         const trickFinishedGame = getTrickFinishedGame(environment)
 
-        const trick = moves.map(m => m.card)
+        const trick = [moves[1].card, moves[2].card, moves[3].card, moves[0].card]
+
         expect(trickFinishedGame.players[2].tricks).toEqual([trick])
       })
 
@@ -515,9 +527,14 @@ describe("game", () => {
       const c1 = Card.create(Suit.Diamonds, 5)
       const c2 = Card.create(Suit.Spades, 5)
       const c3 = Card.create(Suit.Spades, 9)
-      const trick = [c0, c1, c2, c3]
+      const currentTrick = [c0, c1, c2, c3]
+      const game = {
+        currentPlayerIndex: 0,
+        currentTrick,
+        players: [1, 2, 3, 4],
+      } as any
 
-      expect(Game.findWinningTrickPlayerIndex(trick)).toEqual(3)
+      expect(Game.findWinningTrickPlayerIndex(game)).toEqual(3)
     })
 
     it("is the first if no other has the same suit", () => {
@@ -525,9 +542,14 @@ describe("game", () => {
       const c1 = Card.create(Suit.Diamonds, 5)
       const c2 = Card.create(Suit.Diamonds, 5)
       const c3 = Card.create(Suit.Clubs, 9)
-      const trick = [c0, c1, c2, c3]
+      const currentTrick = [c0, c1, c2, c3]
+      const game = {
+        currentPlayerIndex: 0,
+        currentTrick,
+        players: [1, 2, 3, 4],
+      } as any
 
-      expect(Game.findWinningTrickPlayerIndex(trick)).toEqual(0)
+      expect(Game.findWinningTrickPlayerIndex(game)).toEqual(0)
     })
   })
 

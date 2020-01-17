@@ -20,15 +20,16 @@ const gameErrorOf = (type: GameErrorType) => actionErrorOf<Game>(gameError(type)
 
 const twoOfClubs = Card.create(CardModel.Suit.Clubs, 2)
 
-export const findWinningTrickPlayerIndex = (trick: CardModel.Trick) => {
-  const firstCard = trick[0]
-  const sameSuit = trick.filter(c => c.suit === firstCard.suit)
+export const findWinningTrickPlayerIndex = (game: Game) => {
+  const firstCard = game.currentTrick[0]
+  const sameSuit = game.currentTrick.filter(c => c.suit === firstCard.suit)
   const highestCard = R.reduce(
     R.max,
     0,
     sameSuit.map(c => c.faceValue),
   )
-  return trick.findIndex(c => c.faceValue === highestCard && c.suit === firstCard.suit)
+  const i = game.currentTrick.findIndex(c => c.faceValue === highestCard && c.suit === firstCard.suit)
+  return (i + game.currentPlayerIndex) % game.players.length
 }
 
 const sendEventToAllPlayers = (eventCreator: (player: Player) => PlayerEvent): GameAction => game =>
@@ -128,7 +129,7 @@ const doPlayerCardMove = (playerId: PlayerId, card: CardModel.Card): GameAction 
   })
 
 const doTrickFinished: GameAction = game => {
-  const winningTrickPlayedIndex = findWinningTrickPlayerIndex(game.currentTrick)
+  const winningTrickPlayedIndex = findWinningTrickPlayerIndex(game)
   const winningPlayer = game.players[winningTrickPlayedIndex]
   return pipe(
     actionOf({
