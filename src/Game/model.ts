@@ -21,6 +21,7 @@ export type GameError = {
 
 export type GamePublicState = Readonly<{
   currentTrick: Trick
+  trickFirstPlayerIndex: number
   stage: GameStage
   trickCounter: number
   heartsHasBeenDrawn: boolean

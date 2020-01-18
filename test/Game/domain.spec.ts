@@ -30,6 +30,7 @@ const defaultEventFor = ({ hand, id, name }: PlayerModels.Player) => ({
       currentTrick: [],
       heartsHasBeenDrawn: false,
       trickCounter: 0,
+      trickFirstPlayerIndex: 0,
     },
     playerState: {
       hand,
@@ -171,6 +172,7 @@ describe("game", () => {
           event: {
             gameState: {
               stage: GameStage.Playing,
+              trickFirstPlayerIndex: 1,
             },
             playerState: {
               hand: player1Cards,
@@ -355,6 +357,7 @@ describe("game", () => {
               gameState: {
                 currentTrick: trick,
                 stage: GameStage.Ended,
+                trickFirstPlayerIndex: 1,
               },
               type: PlayerEventType.TrickFinished,
             },
@@ -423,6 +426,7 @@ describe("game", () => {
                 gameState: {
                   stage: GameStage.Playing,
                   trickCounter: 1,
+                  trickFirstPlayerIndex: 2,
                 },
                 type: PlayerEventType.Play,
               },
@@ -465,6 +469,7 @@ describe("game", () => {
                 gameState: {
                   stage: GameStage.Playing,
                   trickCounter: 1,
+                  trickFirstPlayerIndex: 2,
                 },
                 type: PlayerEventType.Play,
               },

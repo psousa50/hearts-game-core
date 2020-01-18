@@ -61,6 +61,7 @@ export const create = (players: Player[]) =>
         players,
         stage: GameStage.Idle,
         trickCounter: 0,
+        trickFirstPlayerIndex: 0,
       })
     }),
   )
@@ -89,13 +90,14 @@ export const start: GameAction = game =>
         ...player,
         hand: distributedCards.hands[i],
       }))
-      const currentPlayerIndex = players.findIndex(p => p.hand.some(c => Card.equals(c, twoOfClubs)))
+      const currentPlayerIndex = Math.max(players.findIndex(p => p.hand.some(c => Card.equals(c, twoOfClubs))), 0)
       const nextGame = {
         ...game,
-        currentPlayerIndex: Math.max(currentPlayerIndex, 0),
+        currentPlayerIndex,
         deck: distributedCards.deck,
         players,
         stage: GameStage.Playing,
+        trickFirstPlayerIndex: currentPlayerIndex,
       }
       return pipe(
         actionOf(nextGame),
@@ -147,6 +149,7 @@ const doTrickFinished: GameAction = game => {
         tricks: [...p.tricks, game.currentTrick],
       })),
       trickCounter: game.trickCounter + 1,
+      trickFirstPlayerIndex: winningTrickPlayedIndex,
     }),
     chain(sendEventToAllPlayers(player => Events.createPlayerEventTrickFinished(player, game))),
   )
