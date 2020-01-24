@@ -21,14 +21,14 @@ const gameErrorOf = (type: GameErrorType) => actionErrorOf<Game>(gameError(type)
 const twoOfClubs = Card.create(CardModel.Suit.Clubs, 2)
 
 export const findWinningTrickPlayerIndex = (game: Game) => {
-  const firstCard = game.currentTrick[0]
-  const sameSuit = game.currentTrick.filter(c => c.suit === firstCard.suit)
+  const firstCard = Card.trickFirstCard(game.currentTrick)
+  const sameSuit = Card.trickCards(game.currentTrick).filter(c => c.suit === firstCard.suit)
   const highestCard = R.reduce(
     R.max,
     0,
     sameSuit.map(c => c.faceValue),
   )
-  const i = game.currentTrick.findIndex(c => c.faceValue === highestCard && c.suit === firstCard.suit)
+  const i = Card.trickCards(game.currentTrick).findIndex(c => c.faceValue === highestCard && c.suit === firstCard.suit)
   return (i + game.currentPlayerIndex) % game.players.length
 }
 
@@ -54,11 +54,11 @@ export const create = (players: Player[]) =>
       const deck = dealer.createDeck()
       return actionOf({
         currentPlayerIndex: 0,
-        currentTrick: [],
+        currentTrick: Card.createTrick(),
         deck,
         deckSize: deck.length,
         heartsHasBeenDrawn: false,
-        lastTrick: [],
+        lastTrick: Card.createTrick(),
         players,
         stage: GameStage.Idle,
         trickCounter: 0,
@@ -68,6 +68,8 @@ export const create = (players: Player[]) =>
   )
 
 export const getCurrentPlayer = (game: Game) => game.players[game.currentPlayerIndex]
+
+export const getPlayerIndex = (game: Game, playerId: PlayerId) => game.players.findIndex(p => p.id === playerId)
 
 export const start: GameAction = game =>
   pipe(
@@ -91,7 +93,10 @@ export const start: GameAction = game =>
         ...player,
         hand: distributedCards.hands[i],
       }))
-      const currentPlayerIndex = Math.max(players.findIndex(p => p.hand.some(c => Card.equals(c, twoOfClubs))), 0)
+      const currentPlayerIndex = Math.max(
+        players.findIndex(p => p.hand.some(c => Card.equals(c, twoOfClubs))),
+        0,
+      )
       const nextGame = {
         ...game,
         currentPlayerIndex,
@@ -132,7 +137,7 @@ const doPlayerCardMove = (playerId: PlayerId, card: CardModel.Card): GameAction 
   actionOf({
     ...game,
     currentPlayerIndex: nextPlayer(game),
-    currentTrick: [...game.currentTrick, card],
+    currentTrick: Card.addCardToTrick(game.currentTrick, card, getPlayerIndex(game, playerId)),
     heartsHasBeenDrawn: game.heartsHasBeenDrawn || card.suit === CardModel.Suit.Hearts,
     players: replacePlayer(game.players, playerId, removeCardFromHand(card)),
   })
@@ -144,7 +149,7 @@ const doTrickFinished: GameAction = game => {
     actionOf({
       ...game,
       currentPlayerIndex: winningTrickPlayedIndex,
-      currentTrick: [],
+      currentTrick: Card.createTrick(),
       lastTrick: game.currentTrick,
       players: replacePlayer(game.players, winningPlayer.id, p => ({
         ...p,
@@ -158,7 +163,7 @@ const doTrickFinished: GameAction = game => {
 }
 
 const checkTrickFinished: GameAction = game =>
-  game.currentTrick.length === game.players.length ? doTrickFinished(game) : actionOf(game)
+  game.currentTrick.cards.length === game.players.length ? doTrickFinished(game) : actionOf(game)
 
 const doEndOfGame: GameAction = game =>
   pipe(
@@ -200,11 +205,11 @@ export const played = (playerId: PlayerId, move: Move): GameAction => game =>
 const getPlayer = (game: Game, playerId: PlayerId) => game.players.find(p => p.id === playerId)
 
 const isValidCardMove = (gameState: GamePublicState, playerState: PlayerPublicState, card: CardModel.Card) =>
-  (gameState.trickCounter !== 0 || gameState.currentTrick.length > 0 || Card.equals(card, twoOfClubs)) &&
-  (gameState.currentTrick.length !== 0 || card.suit !== CardModel.Suit.Hearts || gameState.heartsHasBeenDrawn) &&
-  (gameState.currentTrick.length === 0 ||
-    gameState.currentTrick[0].suit === card.suit ||
-    playerState.hand.every(c => c.suit !== gameState.currentTrick[0].suit))
+  (gameState.trickCounter !== 0 || !Card.trickIsEmpty(gameState.currentTrick) || Card.equals(card, twoOfClubs)) &&
+  (!Card.trickIsEmpty(gameState.currentTrick) || card.suit !== CardModel.Suit.Hearts || gameState.heartsHasBeenDrawn) &&
+  (Card.trickIsEmpty(gameState.currentTrick) ||
+    Card.trickSuit(gameState.currentTrick) === card.suit ||
+    playerState.hand.every(c => c.suit !== Card.trickSuit(gameState.currentTrick)))
 
 export const isValidMove = (gameState: GamePublicState, playerState: PlayerPublicState, move: Move) =>
   move.type === MoveType.Card ? isValidCardMove(gameState, playerState, move.card) : false

@@ -27,9 +27,9 @@ type Event = {
 const defaultEventFor = ({ hand, id, name, type }: PlayerModels.Player) => ({
   event: {
     gameState: {
-      currentTrick: [],
+      currentTrick: Card.createTrick(),
       heartsHasBeenDrawn: false,
-      lastTrick: [],
+      lastTrick: Card.createTrick(),
       trickCounter: 0,
       trickFirstPlayerIndex: 0,
     },
@@ -58,6 +58,11 @@ const getLeft = <L, A>(fa: Either<L, A>) =>
       throw new Error(`Should be Left => ${JSON.stringify(r)}`)
     }),
   )
+
+const createTrick = (cards: CardModel.Card[], firstPlayerIndex: number = 0) => ({
+  cards,
+  firstPlayerIndex,
+})
 
 describe("game", () => {
   const getEnvironment = (overrides: DeepPartial<Environment> = {}): Environment => {
@@ -227,7 +232,7 @@ describe("game", () => {
         const move = Move.createCardMove(Card.create(Suit.Clubs, 2))
         const game = getRight(gameAfterFirstMove(environment, move))
 
-        expect(game.currentTrick).toEqual([move.card])
+        expect(game.currentTrick).toEqual(createTrick([move.card]))
       })
 
       it("should call 'PlayerPlayed' on every player", () => {
@@ -293,7 +298,7 @@ describe("game", () => {
           R.mergeDeepRight(defaultEventFor(secondPlayer), {
             event: {
               gameState: {
-                currentTrick: [moveCard],
+                currentTrick: createTrick([moveCard]),
                 stage: GameStage.Playing,
               },
               playerState: {
@@ -316,7 +321,8 @@ describe("game", () => {
         Move.createCardMove(Card.create(Suit.Clubs, 8)),
         Move.createCardMove(Card.create(Suit.Diamonds, 10)),
       ]
-      const lastTrick = [moves[1].card, moves[2].card, moves[3].card, moves[0].card]
+      const trickFirstPlayer = 1
+      const lastTrick = createTrick([moves[1].card, moves[2].card, moves[3].card, moves[0].card], trickFirstPlayer)
 
       const getTrickFinishedGame = (environment: Environment) => {
         const game = Game.create(fourPlayers)
@@ -336,7 +342,7 @@ describe("game", () => {
           pipe(
             game,
             chain(Game.start),
-            chain(Game.played(fourPlayers[1].id, moves[1])),
+            chain(Game.played(fourPlayers[1].id, moves[trickFirstPlayer])),
             chain(Game.played(fourPlayers[2].id, moves[2])),
             chain(Game.played(fourPlayers[3].id, moves[3])),
             chain(Game.played(fourPlayers[0].id, moves[0])),
@@ -380,7 +386,8 @@ describe("game", () => {
         const environment = getEnvironment()
         const trickFinishedGame = getTrickFinishedGame(environment)
 
-        expect(trickFinishedGame.currentTrick).toEqual([])
+        const emptyTrick = Card.createTrick()
+        expect(trickFinishedGame.currentTrick).toEqual(emptyTrick)
         expect(trickFinishedGame.lastTrick).toEqual(lastTrick)
       })
 
@@ -534,7 +541,7 @@ describe("game", () => {
           R.mergeDeepRight(defaultEventFor(player), {
             event: {
               gameState: {
-                lastTrick: [someCard, someCard],
+                lastTrick: createTrick([someCard, someCard]),
                 stage: GameStage.Ended,
                 trickCounter: 2,
               },
@@ -590,7 +597,7 @@ describe("game", () => {
       const c1 = Card.create(Suit.Diamonds, 5)
       const c2 = Card.create(Suit.Spades, 5)
       const c3 = Card.create(Suit.Spades, 9)
-      const currentTrick = [c0, c1, c2, c3]
+      const currentTrick = createTrick([c0, c1, c2, c3])
       const game = {
         currentPlayerIndex: 0,
         currentTrick,
@@ -605,7 +612,7 @@ describe("game", () => {
       const c1 = Card.create(Suit.Diamonds, 5)
       const c2 = Card.create(Suit.Diamonds, 5)
       const c3 = Card.create(Suit.Clubs, 9)
-      const currentTrick = [c0, c1, c2, c3]
+      const currentTrick = createTrick([c0, c1, c2, c3])
       const game = {
         currentPlayerIndex: 0,
         currentTrick,
