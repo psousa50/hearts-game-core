@@ -24,11 +24,12 @@ type Event = {
   event: PlayerEvent
 }
 
-const defaultEventFor = ({ hand, id, name }: PlayerModels.Player) => ({
+const defaultEventFor = ({ hand, id, name, type }: PlayerModels.Player) => ({
   event: {
     gameState: {
       currentTrick: [],
       heartsHasBeenDrawn: false,
+      lastTrick: [],
       trickCounter: 0,
       trickFirstPlayerIndex: 0,
     },
@@ -36,6 +37,7 @@ const defaultEventFor = ({ hand, id, name }: PlayerModels.Player) => ({
       hand,
       id,
       name,
+      type,
     },
   },
   playerId: id,
@@ -249,6 +251,7 @@ describe("game", () => {
                 hand: firstPlayer.hand,
                 id: firstPlayer.id,
                 name: firstPlayer.name,
+                type: "",
               },
               type: PlayerEventType.PlayerPlayed,
             },
@@ -313,6 +316,7 @@ describe("game", () => {
         Move.createCardMove(Card.create(Suit.Clubs, 8)),
         Move.createCardMove(Card.create(Suit.Diamonds, 10)),
       ]
+      const lastTrick = [moves[1].card, moves[2].card, moves[3].card, moves[0].card]
 
       const getTrickFinishedGame = (environment: Environment) => {
         const game = Game.create(fourPlayers)
@@ -349,13 +353,11 @@ describe("game", () => {
         })
         getTrickFinishedGame(environment)
 
-        const trick = [moves[1].card, moves[2].card, moves[3].card, moves[0].card]
-
         const expectedEvents = fourPlayers.map(player =>
           R.mergeDeepRight(defaultEventFor(player), {
             event: {
               gameState: {
-                currentTrick: trick,
+                currentTrick: lastTrick,
                 stage: GameStage.Ended,
                 trickFirstPlayerIndex: 1,
               },
@@ -371,16 +373,15 @@ describe("game", () => {
         const environment = getEnvironment()
         const trickFinishedGame = getTrickFinishedGame(environment)
 
-        const trick = [moves[1].card, moves[2].card, moves[3].card, moves[0].card]
-
-        expect(trickFinishedGame.players[2].tricks).toEqual([trick])
+        expect(trickFinishedGame.players[2].tricks).toEqual([lastTrick])
       })
 
-      it("clears current trick", () => {
+      it("clears current trick and saves it in lastTrick", () => {
         const environment = getEnvironment()
         const trickFinishedGame = getTrickFinishedGame(environment)
 
         expect(trickFinishedGame.currentTrick).toEqual([])
+        expect(trickFinishedGame.lastTrick).toEqual(lastTrick)
       })
 
       it("set's the current player to the winning player", () => {
@@ -424,6 +425,7 @@ describe("game", () => {
             R.mergeDeepRight(defaultEventFor(winningPlayer), {
               event: {
                 gameState: {
+                  lastTrick,
                   stage: GameStage.Playing,
                   trickCounter: 1,
                   trickFirstPlayerIndex: 2,
@@ -467,6 +469,7 @@ describe("game", () => {
             R.mergeDeepRight(defaultEventFor(winningPlayer), {
               event: {
                 gameState: {
+                  lastTrick,
                   stage: GameStage.Playing,
                   trickCounter: 1,
                   trickFirstPlayerIndex: 2,
@@ -531,6 +534,7 @@ describe("game", () => {
           R.mergeDeepRight(defaultEventFor(player), {
             event: {
               gameState: {
+                lastTrick: [someCard, someCard],
                 stage: GameStage.Ended,
                 trickCounter: 2,
               },

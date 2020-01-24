@@ -7,7 +7,7 @@
     "prebuild": "npm run clean && npm run lint",
     "postbuild": "npm test",
     "build": "npm run tsc",
-    "tsc": "tsc --project tsconfig.dist.json",
+    "tsc": "tsc --project tsconfig.json",
     "clean": "rm -rf dist",
     "lint": "tslint --project tsconfig.json",
     "dev": "nodemon --exec 'ts-node --files' ./src/index.ts",

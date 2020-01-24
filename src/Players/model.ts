@@ -4,6 +4,7 @@ export type PlayerId = string
 
 export type PlayerPublicState = {
   id: PlayerId
+  type: string,
   name: string
   hand: Hand
 }

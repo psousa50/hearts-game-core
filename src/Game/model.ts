@@ -21,6 +21,7 @@ export type GameError = {
 
 export type GamePublicState = Readonly<{
   currentTrick: Trick
+  lastTrick: Trick
   trickFirstPlayerIndex: number
   stage: GameStage
   trickCounter: number

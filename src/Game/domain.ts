@@ -58,6 +58,7 @@ export const create = (players: Player[]) =>
         deck,
         deckSize: deck.length,
         heartsHasBeenDrawn: false,
+        lastTrick: [],
         players,
         stage: GameStage.Idle,
         trickCounter: 0,
@@ -144,6 +145,7 @@ const doTrickFinished: GameAction = game => {
       ...game,
       currentPlayerIndex: winningTrickPlayedIndex,
       currentTrick: [],
+      lastTrick: game.currentTrick,
       players: replacePlayer(game.players, winningPlayer.id, p => ({
         ...p,
         tricks: [...p.tricks, game.currentTrick],
