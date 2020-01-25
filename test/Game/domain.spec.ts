@@ -25,7 +25,7 @@ type Event = {
   event: PlayerEvent
 }
 
-const defaultEventFor = ({ hand, id, name, type }: PlayerModels.Player) => ({
+const defaultEventFor = ({ hand, id, name, tricks, type }: PlayerModels.Player) => ({
   event: {
     gameState: {
       currentTrick: Trick.createTrick(),
@@ -38,6 +38,7 @@ const defaultEventFor = ({ hand, id, name, type }: PlayerModels.Player) => ({
       hand,
       id,
       name,
+      tricks,
       type,
     },
   },
@@ -264,21 +265,17 @@ describe("game", () => {
           },
         })
         const move = Move.createCardMove(Card.create(Suit.Clubs, 2))
-        gameAfterFirstMove(environment, move)
 
-        const expectedEvents = twoPlayers.map(player =>
+        const game = getRight(gameAfterFirstMove(environment, move))
+
+        const expectedEvents = game.players.map(player =>
           R.mergeDeepRight(defaultEventFor(player), {
             event: {
               gameState: {
                 stage: GameStage.Playing,
               },
               move,
-              playing: {
-                hand: firstPlayer.hand,
-                id: firstPlayer.id,
-                name: firstPlayer.name,
-                type: "",
-              },
+              playing: firstPlayer,
               type: PlayerEventType.PlayerPlayed,
             },
           }),
@@ -380,9 +377,10 @@ describe("game", () => {
             return undefined
           },
         })
-        getTrickFinishedGame(environment)
 
-        const expectedEvents = fourPlayers.map(player =>
+        const game = getTrickFinishedGame(environment)
+
+        const expectedEvents = game.players.map(player =>
           R.mergeDeepRight(defaultEventFor(player), {
             event: {
               gameState: {
@@ -561,9 +559,10 @@ describe("game", () => {
             return undefined
           },
         })
-        getFinishedGame(twoPlayers, environment, move)
 
-        const expectedEvents = twoPlayers.map(player =>
+        const game = getFinishedGame(twoPlayers, environment, move)
+
+        const expectedEvents = game.players.map(player =>
           R.mergeDeepRight(defaultEventFor(player), {
             event: {
               gameState: {

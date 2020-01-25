@@ -8,8 +8,8 @@ export type PlayerPublicState = {
   type: string,
   name: string
   hand: Hand
+  tricks: Trick[]
 }
 
 export type Player = PlayerPublicState & {
-  tricks: Trick[]
 }

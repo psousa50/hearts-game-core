@@ -4,7 +4,7 @@ import { Player, PlayerId } from "../Players/model"
 import { GameEvent, GameEventType, PlayerEvent, PlayerEventType } from "./model"
 
 const createPlayerEventBase = (
-  { hand, id, name, type }: Player,
+  { hand, id, name, tricks, type }: Player,
   { currentTrick, heartsBroken, lastTrick, stage, trickCounter, trickFirstPlayerIndex }: Game,
 ) => ({
   gameState: {
@@ -19,6 +19,7 @@ const createPlayerEventBase = (
     hand,
     id,
     name,
+    tricks,
     type,
   },
 })
@@ -41,12 +42,12 @@ export const createPlayerEventPlay = (player: Player, game: Game): PlayerEvent =
 export const createPlayerEventPlayerPlayed = (
   player: Player,
   game: Game,
-  { hand, id, name, type }: Player,
+  playing: Player,
   move: Move,
 ): PlayerEvent => ({
   ...createPlayerEventBase(player, game),
   move,
-  playing: { hand, id, name, type },
+  playing,
   type: PlayerEventType.PlayerPlayed,
 })
 
