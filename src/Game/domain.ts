@@ -120,8 +120,8 @@ export const nextPlay: GameAction = game =>
         ask(),
         chain(({ playerEventDispatcher }) => {
           const currentPlayer = getCurrentPlayer(game)
-          playerEventDispatcher(currentPlayer.id, Events.createPlayerEventPlay(currentPlayer, game))
-          return actionOf(game)
+          const move = playerEventDispatcher(currentPlayer.id, Events.createPlayerEventPlay(currentPlayer, game))
+          return move ? doPlayerMove(currentPlayer, move)(game) : actionOf(game)
         }),
       )
     : actionOf(game)
@@ -185,7 +185,7 @@ const doPlayerMove = (player: Player, move: Move): GameAction => game =>
   pipe(
     ask(),
     chain(({ validateMove }) =>
-      validateMove(game, player, move)
+      validateMove(game, player)(move)
         ? pipe(
             actionOf(game),
             chain(sendEventToAllPlayers(p => Events.createPlayerEventPlayerPlayed(p, game, player, move))),
@@ -219,5 +219,5 @@ const isValidCardMove = (gameState: GamePublicState, playerState: PlayerPublicSt
   return firstCardMustBe2OfClubs() && suitMustBeSameAsFirstCard() && canPlayHeartsOnlyIfBroken()
 }
 
-export const isValidMove = (gameState: GamePublicState, playerState: PlayerPublicState, move: Move) =>
+export const isValidMove = (gameState: GamePublicState, playerState: PlayerPublicState) => (move: Move) =>
   move.type === MoveType.Card ? isValidCardMove(gameState, playerState, move.card) : false

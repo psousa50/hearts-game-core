@@ -1,6 +1,7 @@
 import * as R from "ramda"
 import * as Card from "../Cards/domain"
 import * as CardModel from "../Cards/model"
+import { rnd } from "../utils/misc"
 import { Deck } from "./model"
 
 export interface Dealer {
@@ -18,7 +19,7 @@ export const createDeck = () =>
 
 export const shuffleDeck = (deck: Deck, times: number = 100) =>
   R.range(1, times + 1).reduce((acc, _) => {
-    const p = Math.floor(Math.random() * deck.length)
+    const p = rnd(deck.length)
     return [...acc.slice(0, p), ...acc.slice(p + 1), acc[p]]
   }, deck)
 

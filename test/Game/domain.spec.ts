@@ -77,7 +77,7 @@ describe("game", () => {
         shuffleDeck: jest.fn(),
       },
       playerEventDispatcher: jest.fn(),
-      validateMove: () => true,
+      validateMove: () => () => true,
     }
 
     return R.mergeDeepRight(defaultEnvironment, overrides)
@@ -133,6 +133,7 @@ describe("game", () => {
         },
         playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
           events = [...events, { playerId, event }]
+          return undefined
         },
       })
 
@@ -171,6 +172,7 @@ describe("game", () => {
         },
         playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
           events = [...events, { playerId, event }]
+          return undefined
         },
       })
       pipe(Game.create(twoPlayers), chain(Game.start))(environment)
@@ -241,6 +243,7 @@ describe("game", () => {
         const environment = getEnvironment({
           playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
             events = [...events, { playerId, event }]
+            return undefined
           },
         })
         const move = Move.createCardMove(Card.create(Suit.Clubs, 2))
@@ -291,6 +294,7 @@ describe("game", () => {
           },
           playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
             events = [...events, { playerId, event }]
+            return undefined
           },
         })
         gameAfterFirstMove(environment, Move.createCardMove(moveCard))
@@ -356,6 +360,7 @@ describe("game", () => {
         const environment = getEnvironment({
           playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
             events = [...events, { playerId, event }]
+            return undefined
           },
         })
         getTrickFinishedGame(environment)
@@ -419,6 +424,7 @@ describe("game", () => {
             },
             playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
               events = [...events, { playerId, event }]
+              return undefined
             },
           })
           const trickFinishedGame = getTrickFinishedGame(environment)
@@ -469,6 +475,7 @@ describe("game", () => {
             },
             playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
               events = [...events, { playerId, event }]
+              return undefined
             },
           })
           pipe(trickFinishedGame, Game.nextPlay)(environment)
@@ -534,6 +541,7 @@ describe("game", () => {
           },
           playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
             events = [...events, { playerId, event }]
+            return undefined
           },
         })
         getFinishedGame(twoPlayers, environment, move)
@@ -569,6 +577,7 @@ describe("game", () => {
           },
           playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
             events = [...events, { playerId, event }]
+            return undefined
           },
         })
         getFinishedGame(twoPlayers, environment, move)
@@ -579,7 +588,7 @@ describe("game", () => {
 
     it("rejects invalid moves", () => {
       const environment = getEnvironment({
-        validateMove: () => false,
+        validateMove: () => () => false,
       })
       const invalidMove = { some: "invalid-move" } as any
       const game = pipe(
@@ -638,7 +647,7 @@ describe("game", () => {
         )
         const validMove = Move.createCardMove(Card.create(Suit.Clubs, 3))
 
-        expect(Game.isValidMove(game, secondPlayer, validMove)).toBeTruthy()
+        expect(Game.isValidMove(game, secondPlayer)(validMove)).toBeTruthy()
       })
 
       it("suit is different but player has no card of the same suit", () => {
@@ -652,7 +661,7 @@ describe("game", () => {
         const validMove = Move.createCardMove(Card.create(Suit.Clubs, 3))
         const player = { hand: [Card.create(Suit.Hearts, 5)] } as any
 
-        expect(Game.isValidMove(game, player, validMove)).toBeTruthy()
+        expect(Game.isValidMove(game, player)(validMove)).toBeTruthy()
       })
 
       it("first card is Hearts but hearts as already been drawn", () => {
@@ -667,7 +676,7 @@ describe("game", () => {
         const heartsCard = Card.create(Suit.Hearts, 3)
         const validMove = Move.createCardMove(heartsCard)
 
-        expect(Game.isValidMove(game, firstPlayer, validMove)).toBeTruthy()
+        expect(Game.isValidMove(game, firstPlayer)(validMove)).toBeTruthy()
       })
 
       it("card is Hearts and hearts has not been drawn yet but player only have hearts", () => {
@@ -678,7 +687,7 @@ describe("game", () => {
         const heartsCard = Card.create(Suit.Hearts, 3)
         const validMove = Move.createCardMove(heartsCard)
 
-        expect(Game.isValidMove(game, player, validMove)).toBeTruthy()
+        expect(Game.isValidMove(game, player)(validMove)).toBeTruthy()
       })
     })
 
@@ -689,7 +698,7 @@ describe("game", () => {
 
         const game = getRight(Game.create(twoPlayers)(getEnvironment()))
 
-        expect(Game.isValidMove(game, firstPlayer, invalidMove)).toBeFalsy()
+        expect(Game.isValidMove(game, firstPlayer)(invalidMove)).toBeFalsy()
       })
 
       it("first card is Hearts but hearts has not been drawn yet", () => {
@@ -698,7 +707,7 @@ describe("game", () => {
         const heartsCard = Card.create(Suit.Hearts, 3)
         const invalidMove = Move.createCardMove(heartsCard)
 
-        expect(Game.isValidMove(game, firstPlayer, invalidMove)).toBeFalsy()
+        expect(Game.isValidMove(game, firstPlayer)(invalidMove)).toBeFalsy()
       })
     })
   })

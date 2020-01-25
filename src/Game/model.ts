@@ -35,4 +35,4 @@ export type Game = Readonly<GamePublicState & {
   deckSize: number
 }>
 
-export type MoveValidator = (gameState: GamePublicState, playerState: PlayerPublicState, move: Move) => boolean
+export type MoveValidator = (gameState: GamePublicState, playerState: PlayerPublicState) => (move: Move) => boolean

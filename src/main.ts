@@ -26,7 +26,7 @@ export const playerEventDispatcher = (playerId: PlayerId, event: PlayerEvent) =>
       break
     case PlayerEventType.Play:
       const validCards = event.playerState.hand.filter(card =>
-        Game.isValidMove(event.gameState, event.playerState, Move.createCardMove(card)),
+        Game.isValidMove(event.gameState, event.playerState)(Move.createCardMove(card)),
       )
       if (validCards.length > 0) {
         const move = Move.createCardMove(validCards[0])
@@ -39,6 +39,8 @@ export const playerEventDispatcher = (playerId: PlayerId, event: PlayerEvent) =>
       }
       break
   }
+
+  return undefined
 }
 
 export const environment: Environment = {
@@ -47,7 +49,7 @@ export const environment: Environment = {
   },
   dealer: Dealer,
   playerEventDispatcher,
-  validateMove: () => true,
+  validateMove: () => () => true,
 }
 
 const gameLoop: GameAction = game => {

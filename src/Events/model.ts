@@ -45,7 +45,7 @@ export type PlayerEvent =
   | PlayerEventTrickFinished
   | PlayerEventPlay
 
-export type PlayerEventDispatcher = (playerId: PlayerId, event: PlayerEvent) => void
+export type PlayerEventDispatcher = (playerId: PlayerId, event: PlayerEvent) => Move | undefined
 
 export enum GameEventType {
   PlayerPlayed = "PlayerPlayed",
