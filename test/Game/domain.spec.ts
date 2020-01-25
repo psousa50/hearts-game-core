@@ -195,6 +195,23 @@ describe("game", () => {
 
       expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
     })
+
+    it("'Plays' the move returnd by playerEventDispatcher", () => {
+      const twoOfClubs = Card.create(Suit.Clubs, 2)
+      const environment = getEnvironment({
+        playerEventDispatcher: (_: PlayerId, event: PlayerEvent) => {
+          switch (event.type) {
+            case PlayerEventType.Play:
+              return Move.createCardMove(twoOfClubs)
+          }
+          return undefined
+        },
+      })
+
+      const game = getRight(pipe(Game.create(twoPlayers), chain(Game.start))(environment))
+
+      expect(game.currentTrick.cards).toEqual([twoOfClubs])
+    })
   })
 
   describe("While playing", () => {
