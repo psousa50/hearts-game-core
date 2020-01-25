@@ -1,7 +1,7 @@
-import { Trick } from "../Cards/model"
 import { Deck } from "../Dealer/model"
 import { Move } from "../Moves/model"
 import { Player, PlayerPublicState } from "../Players/model"
+import { Trick } from "../Tricks/model"
 
 export enum GameStage {
   Idle = "Idle",
@@ -25,7 +25,7 @@ export type GamePublicState = Readonly<{
   trickFirstPlayerIndex: number
   stage: GameStage
   trickCounter: number
-  heartsHasBeenDrawn: boolean
+  heartsBroken: boolean
 }>
 
 export type Game = Readonly<GamePublicState & {

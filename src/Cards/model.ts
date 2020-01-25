@@ -23,6 +23,4 @@ export type Card = {
   faceValue: FaceValue
 }
 
-export type Trick = { cards: Card[]; firstPlayerIndex: number }
-
 export type Hand = Card[]

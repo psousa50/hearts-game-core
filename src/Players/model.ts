@@ -1,4 +1,5 @@
-import { Hand, Trick } from "../Cards/model"
+import { Hand } from "../Cards/model"
+import { Trick } from "../Tricks/model"
 
 export type PlayerId = string
 

@@ -17,6 +17,7 @@ import * as MoveModels from "../../src/Moves/model"
 import * as Player from "../../src/Players/domain"
 import * as PlayerModels from "../../src/Players/model"
 import { PlayerId } from "../../src/Players/model"
+import * as Trick from "../../src/Tricks/domain"
 import { DeepPartial } from "../../src/utils/types"
 
 type Event = {
@@ -27,9 +28,9 @@ type Event = {
 const defaultEventFor = ({ hand, id, name, type }: PlayerModels.Player) => ({
   event: {
     gameState: {
-      currentTrick: Card.createTrick(),
-      heartsHasBeenDrawn: false,
-      lastTrick: Card.createTrick(),
+      currentTrick: Trick.createTrick(),
+      heartsBroken: false,
+      lastTrick: Trick.createTrick(),
       trickCounter: 0,
       trickFirstPlayerIndex: 0,
     },
@@ -386,7 +387,7 @@ describe("game", () => {
         const environment = getEnvironment()
         const trickFinishedGame = getTrickFinishedGame(environment)
 
-        const emptyTrick = Card.createTrick()
+        const emptyTrick = Trick.createTrick()
         expect(trickFinishedGame.currentTrick).toEqual(emptyTrick)
         expect(trickFinishedGame.lastTrick).toEqual(lastTrick)
       })
@@ -669,11 +670,11 @@ describe("game", () => {
         expect(Game.isValidMove(game, firstPlayer, validMove)).toBeTruthy()
       })
 
-      it("card is Hearts and hearts has not been drawn yet but player does not have starting suit", () => {
+      it("card is Hearts and hearts has not been drawn yet but player only have hearts", () => {
         const game = getRight(
           pipe(Game.create(twoPlayers), chain(Game.played(firstPlayer.id, twoOfClubsMove)))(getEnvironment()),
         )
-        const player = { hand: [Card.create(Suit.Diamonds, 5)] } as any
+        const player = { hand: [Card.create(Suit.Hearts, 5)] } as any
         const heartsCard = Card.create(Suit.Hearts, 3)
         const validMove = Move.createCardMove(heartsCard)
 
@@ -687,6 +688,7 @@ describe("game", () => {
         const invalidMove = Move.createCardMove(not2OfClubs)
 
         const game = getRight(Game.create(twoPlayers)(getEnvironment()))
+
         expect(Game.isValidMove(game, firstPlayer, invalidMove)).toBeFalsy()
       })
 
