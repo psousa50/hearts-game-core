@@ -198,12 +198,12 @@ const doPlayerMove = (player: Player, move: Move): GameAction => game =>
     chain(sendPlayToCurrentPlayerIfAuto),
   )
 
+const getPlayer = (game: Game, playerId: PlayerId) => game.players.find(p => p.id === playerId)
+
 export const played = (playerId: PlayerId, move: Move): GameAction => game =>
   isCurrentPlayer(game, playerId)
     ? doPlayerMove(getPlayer(game, playerId)!, move)(game)
     : gameErrorOf(GameErrorType.InvalidPlayer)
-
-const getPlayer = (game: Game, playerId: PlayerId) => game.players.find(p => p.id === playerId)
 
 const isValidCardMove = (gameState: GamePublicState, playerState: PlayerPublicState, card: CardModel.Card) => {
   const { currentTrick: trick } = gameState
