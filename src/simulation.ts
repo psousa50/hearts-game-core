@@ -12,7 +12,6 @@ import * as MoveModels from "./Moves/model"
 import * as Player from "./Players/domain"
 import * as PlayerModel from "./Players/model"
 import { actionOf, GameAction } from "./utils/actions"
-import { lj } from "./utils/misc"
 
 enum PlayerType {
   Random = "Random",

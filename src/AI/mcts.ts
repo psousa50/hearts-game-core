@@ -1,7 +1,6 @@
 import { pipe } from "fp-ts/lib/pipeable"
 import { chain, getOrElse } from "fp-ts/lib/ReaderEither"
 import * as R from "ramda"
-import * as Card from "../Cards/domain"
 import * as CardModel from "../Cards/model"
 import * as Deck from "../Deck/domain"
 import { buildEnvironment } from "../Environment/domain"
@@ -16,7 +15,7 @@ import * as MoveModel from "../Moves/model"
 import * as Player from "../Players/domain"
 import { PlayerId, PlayerPublicState } from "../Players/model"
 import { actionOf } from "../utils/actions"
-import { lj, randomElement } from "../utils/misc"
+import { randomElement } from "../utils/misc"
 
 interface Options {
   maxIterations: number
@@ -142,9 +141,6 @@ export const findBestMove = (
 
   const tree = MCTS.createTree(config)(gameWithPlayers)
   const { node } = MCTS.findBestNode(tree, options.maxIterations)
-
-  const move = node.move as MoveModel.CardMove
-  // console.log("bestmove", Card.toSymbol(move.card))
 
   return node.move
 }
