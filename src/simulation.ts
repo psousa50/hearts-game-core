@@ -1,7 +1,7 @@
 import { pipe } from "fp-ts/lib/pipeable"
 import { chain } from "fp-ts/lib/ReaderEither"
 import * as mcts from "./AI/mcts"
-import { defaultEnvironment } from "./Environment/domain"
+import { buildEnvironment } from "./Environment/domain"
 import { Environment } from "./Environment/model"
 import { PlayerEvent, PlayerEventType } from "./Events/model"
 import * as Game from "./Game/domain"
@@ -12,6 +12,7 @@ import * as MoveModels from "./Moves/model"
 import * as Player from "./Players/domain"
 import * as PlayerModel from "./Players/model"
 import { actionOf, GameAction } from "./utils/actions"
+import { lj } from "./utils/misc"
 
 enum PlayerType {
   Random = "Random",
@@ -28,7 +29,7 @@ const randomMove = (event: PlayerEvent) => {
     : undefined
 }
 
-const mctsMove = (event: PlayerEvent) => mcts.findBestMove(event.gameState, event.playerState)
+const mctsMove = (event: PlayerEvent) => mcts.findBestMove(event.gameState, event.playerState, { maxIterations: 500})
 
 type PlayFunction = (event: PlayerEvent) => MoveModels.Move | undefined
 type PlayFunctions = {
@@ -40,11 +41,11 @@ const play: PlayFunctions = {
   [PlayerType.MCTS]: mctsMove,
 }
 
-const p1 = Player.create("p1", "Player 1", PlayerType.MCTS)
+const p0 = Player.create("p0", "Player 0", PlayerType.MCTS)
+const p1 = Player.create("p1", "Player 1", PlayerType.Random)
 const p2 = Player.create("p2", "Player 2", PlayerType.Random)
 const p3 = Player.create("p3", "Player 3", PlayerType.Random)
-const p4 = Player.create("p4", "Player 4", PlayerType.Random)
-const players = [p1, p2, p3, p4]
+const players = [p0, p1, p2, p3]
 
 const playerEventDispatcher = (_: PlayerModel.PlayerId, event: PlayerEvent) => {
   switch (event.type) {
@@ -55,24 +56,41 @@ const playerEventDispatcher = (_: PlayerModel.PlayerId, event: PlayerEvent) => {
   return undefined
 }
 
-const environment: Environment = {
-  ...defaultEnvironment,
+const environment: Environment = buildEnvironment({
+  config: {
+    auto: false,
+  },
   playerEventDispatcher,
-}
+})
 
 const gameLoop: GameAction = game =>
-  game.trickCounter < 1 || game.stage === GameStage.Ended
+  game.trickCounter > 15 || game.stage === GameStage.Ended
     ? actionOf(game)
     : pipe(actionOf(game), chain(Game.nextPlay), chain(gameLoop))
 
 const simulate = () => {
   const game = getEitherRight(pipe(Game.create(players), chain(Game.start), chain(gameLoop))(environment))
 
-  // lj("T", game)
+  // lj("T", game.players)
 
   const scores = game.players.map(p => Game.calcPlayerScore(game, p.id))
 
-  console.log("SCORES=====>\n", scores)
+  return scores
 }
 
-simulate()
+const many = () => {
+  const iterations = 50
+  const totalScores = [0, 0, 0, 0]
+
+  for (let index = 0; index < iterations; index++) {
+    const scores = simulate()
+    totalScores[0] += scores[0]
+    totalScores[1] += scores[1]
+    totalScores[2] += scores[2]
+    totalScores[3] += scores[3]
+  }
+
+  totalScores.map((score, i) => console.log(i, score, score / iterations))
+}
+
+many()

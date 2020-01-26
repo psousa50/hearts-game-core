@@ -24,6 +24,7 @@ export type GamePublicState = Readonly<{
   currentTrick: Trick
   heartsBroken: boolean
   lastTrick: Trick
+  playersCount: number,
   stage: GameStage
   trickCounter: number
   trickFirstPlayerIndex: number

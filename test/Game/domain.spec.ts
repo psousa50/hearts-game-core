@@ -6,17 +6,15 @@ import * as R from "ramda"
 import * as Card from "../../src/Cards/domain"
 import * as CardModel from "../../src/Cards/model"
 import { Suit } from "../../src/Cards/model"
-import { Dealer } from "../../src/dealer"
 import * as Deck from "../../src/Deck/domain"
 import * as DeckModel from "../../src/Deck/model"
-import { defaultEnvironment } from "../../src/Environment/domain"
+import { buildEnvironment } from "../../src/Environment/domain"
 import { Config, Environment } from "../../src/Environment/model"
-import { GameEventType, PlayerEvent, PlayerEventType } from "../../src/Events/model"
+import { PlayerEvent, PlayerEventType } from "../../src/Events/model"
 import * as Game from "../../src/Game/domain"
 import * as GameModel from "../../src/Game/model"
 import { GameStage } from "../../src/Game/model"
 import * as Move from "../../src/Moves/domain"
-import * as MoveModels from "../../src/Moves/model"
 import * as Player from "../../src/Players/domain"
 import * as PlayerModels from "../../src/Players/model"
 import { PlayerId } from "../../src/Players/model"
@@ -38,6 +36,7 @@ const defaultEventFor = ({ hand, id, name, tricks, type }: PlayerModels.Player) 
       currentTrick: Trick.createTrick(),
       heartsBroken: false,
       lastTrick: Trick.createTrick(),
+      playersCount: 0,
       trickCounter: 0,
       trickFirstPlayerIndex: 0,
       tricks: [],
@@ -92,7 +91,7 @@ const playFirstPlayerCard = (_: PlayerId, event: PlayerEvent) => {
 
 describe("game", () => {
   const getEnvironment = (overrides: DeepPartial<Environment> = {}): Environment => {
-    const defEnv: DeepPartial<Environment> = {
+    const defaultEnvironment: DeepPartial<Environment> = {
       config: {
         auto: false,
       },
@@ -103,7 +102,7 @@ describe("game", () => {
       validateMove: () => () => true,
     }
 
-    return R.mergeDeepRight(R.mergeDeepRight(defaultEnvironment, defEnv), overrides)
+    return buildEnvironment (R.mergeDeepRight(defaultEnvironment, overrides))
   }
 
   const firstPlayer = Player.create("id1", "Player 1")
@@ -116,10 +115,11 @@ describe("game", () => {
       const environment = getEnvironment({
         dealer: { createDeck: jest.fn(() => newDeck) },
       })
-      const game = getRight(Game.create([])(environment))
+      const game = getRight(Game.create(twoPlayers)(environment))
 
       expect(game.stage).toEqual(GameStage.Idle)
       expect(game.deck).toBe(newDeck)
+      expect(game.playersCount).toBe(2)
     })
   })
 
@@ -143,17 +143,7 @@ describe("game", () => {
 
     it("calls 'Started' on every player", () => {
       let events: Event[] = []
-      const shuffledDeck = { some: "Deck" } as any
-      const player1Cards = [{ player1: "cards" }] as any
-      const player2Cards = [{ player2: "cards" }] as any
       const environment = getEnvironment({
-        dealer: {
-          distributeCards: jest
-            .fn()
-            .mockImplementationOnce(() => ({ deck: [], cards: player1Cards }))
-            .mockImplementationOnce(() => ({ deck: [], cards: player2Cards })),
-          shuffleDeck: jest.fn(() => shuffledDeck),
-        },
         playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
           events = [...events, { playerId, event }]
           return undefined
@@ -162,21 +152,10 @@ describe("game", () => {
 
       pipe(Game.create(twoPlayers), chain(Game.start))(environment)
 
-      const expectedEvents = twoPlayers.map(player =>
-        R.mergeDeepRight(defaultEventFor(player), {
-          event: {
-            gameState: {
-              stage: GameStage.Playing,
-            },
-            playerState: {
-              hand: player.id === firstPlayer.id ? player1Cards : player2Cards,
-            },
-            type: PlayerEventType.GameStarted,
-          },
-        }),
-      )
+      const startedEvents = events.filter(e => e.event.type === PlayerEventType.GameStarted)
+      expect(startedEvents[0].playerId).toBe(firstPlayer.id)
+      expect(startedEvents[1].playerId).toBe(secondPlayer.id)
 
-      expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
     })
 
     it("calls 'Play' on player that has the 2 of Clubs", () => {

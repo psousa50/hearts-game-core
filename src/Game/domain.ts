@@ -55,19 +55,21 @@ export const create = (players: PlayerModel.Player[]) =>
     ask(),
     chain(({ dealer }) => {
       const deck = dealer.createDeck()
-      return actionOf({
+      const game = {
         currentPlayerIndex: 0,
         currentTrick: Trick.createTrick(),
         deck,
         deckSize: deck.cards.length,
         heartsBroken: false,
         lastTrick: Trick.createTrick(),
-        players,
+        players: [],
+        playersCount: 0,
         stage: GameStage.Idle,
         trickCounter: 0,
         trickFirstPlayerIndex: 0,
         tricks: [],
-      })
+      }
+      return actionOf(setPlayers(game, players))
     }),
   )
 
@@ -82,7 +84,6 @@ export const createFromPublicState = (
       const deck = dealer.createDeck()
       return actionOf({
         ...gamePublicState,
-        currentPlayerIndex: players.findIndex(p => p.id === playerPublicState.id),
         deck,
         players: replacePlayer(players, playerPublicState.id, _ => Player.createFromPublicState(playerPublicState)),
       })
@@ -93,6 +94,13 @@ export const getCurrentPlayer = (game: Game) => game.players[game.currentPlayerI
 
 export const getPlayerIndex = (game: Game, playerId: PlayerModel.PlayerId) =>
   game.players.findIndex(p => p.id === playerId)
+
+export const hasPlayed = (game: Game, playerIndex: number) => {
+  const { currentPlayerIndex, currentTrick, playersCount } = game
+  const current =
+    currentPlayerIndex < currentTrick.firstPlayerIndex ? currentPlayerIndex + playersCount : currentPlayerIndex
+  return playerIndex >= currentTrick.firstPlayerIndex && playerIndex < current
+}
 
 export const start: GameAction = game =>
   pipe(
@@ -121,6 +129,7 @@ export const start: GameAction = game =>
         players.findIndex(p => p.hand.some(c => Card.equals(c, twoOfClubs))),
         0,
       )
+
       const nextGame = {
         ...game,
         currentPlayerIndex,
@@ -129,6 +138,7 @@ export const start: GameAction = game =>
         stage: GameStage.Playing,
         trickFirstPlayerIndex: currentPlayerIndex,
       }
+
       return pipe(
         actionOf(nextGame),
         chain(sendEventToAllPlayers(player => Events.createPlayerEventGameStarted(player, nextGame))),
@@ -136,6 +146,12 @@ export const start: GameAction = game =>
       )
     }),
   )
+
+export const setPlayers = (game: Game, players: PlayerModel.Player[]) => ({
+  ...game,
+  players,
+  playersCount: players.length,
+})
 
 export const nextPlay: GameAction = game =>
   game.stage === GameStage.Playing

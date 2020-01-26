@@ -28,4 +28,6 @@ export const fromSymbol = (symbol: string) => {
   return create(suit, faceValue)
 }
 
+export const toList = (cards: Card[]) => cards.map(toSymbol).join(" ")
+
 export const fromList = (list: string) => list.split(" ").map(fromSymbol)
