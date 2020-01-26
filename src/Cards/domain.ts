@@ -1,4 +1,5 @@
-import { Card, FaceValue, faceValues, Suit, suitOrder } from "./model"
+import * as R from "ramda"
+import { Card, FaceValue, faceValues, faceValueSymbols, Suit, suitOrder, suitSymbols } from "./model"
 
 export const create = (suit: Suit, faceValue: FaceValue) => ({
   faceValue,
@@ -14,4 +15,17 @@ export const order = (card1: Card, card2: Card) =>
 
 const queenOfSpades = create(Suit.Spades, faceValues.queen)
 
-export const score = (card: Card) => card.suit === Suit.Hearts ? 1 : equals(card, queenOfSpades) ? 13 : 0
+export const score = (card: Card) => (card.suit === Suit.Hearts ? 1 : equals(card, queenOfSpades) ? 13 : 0)
+
+export const toSymbol = (card: Card) => `${faceValueSymbols[card.faceValue]}${suitSymbols[card.suit]}`
+
+export const fromSymbol = (symbol: string) => {
+  const l = symbol.length
+  const suitSymbol = symbol.substr(l - 1, 1)
+  const suit = R.keys(suitSymbols)[R.values(suitSymbols).findIndex(s => s === suitSymbol)]
+  const faceValue = faceValueSymbols.findIndex(s => s === symbol.substring(0, l - 1))
+
+  return create(suit, faceValue)
+}
+
+export const fromList = (list: string) => list.split(" ").map(fromSymbol)

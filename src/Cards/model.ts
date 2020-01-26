@@ -19,6 +19,15 @@ export const faceValues = {
   queen: 12,
 }
 
+export const faceValueSymbols = ["", "", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
+
+export const suitSymbols = {
+  [Suit.Hearts]: "H",
+  [Suit.Clubs]: "C",
+  [Suit.Diamonds]: "D",
+  [Suit.Spades]: "S",
+}
+
 export const suits = [Suit.Clubs, Suit.Diamonds, Suit.Hearts, Suit.Spades]
 export const minFaceValue = 2
 export const maxFaceValue = 14
