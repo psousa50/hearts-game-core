@@ -1,8 +1,8 @@
-import { Dealer } from "../Dealer/domain"
+import { Dealer } from "../dealer"
 import { PlayerEventDispatcher } from "../Events/model"
 import { MoveValidator } from "../Game/model"
 
-interface Config {
+export interface Config {
   auto: boolean
 }
 

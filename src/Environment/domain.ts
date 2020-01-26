@@ -1,4 +1,4 @@
-import * as Dealer from "../Dealer/domain"
+import { Dealer } from "../dealer"
 import * as Game from "../Game/domain"
 import { Environment } from "./model"
 

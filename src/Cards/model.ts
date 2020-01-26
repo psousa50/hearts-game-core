@@ -12,6 +12,13 @@ export const suitOrder = {
   [Suit.Spades]: 3,
 }
 
+export const faceValues = {
+  ace: 14,
+  jack: 11,
+  king: 13,
+  queen: 12,
+}
+
 export const suits = [Suit.Clubs, Suit.Diamonds, Suit.Hearts, Suit.Spades]
 export const minFaceValue = 2
 export const maxFaceValue = 14

@@ -1,7 +1,7 @@
 import { map } from "fp-ts/lib/Either"
 import { pipe } from "fp-ts/lib/pipeable"
 import { chain } from "fp-ts/lib/ReaderEither"
-import * as Dealer from "./Dealer/domain"
+import { Dealer } from "./dealer"
 import { Environment } from "./Environment/model"
 import * as Events from "./Events/domain"
 import { GameEvent, GameEventType, PlayerEvent, PlayerEventType } from "./Events/model"
@@ -16,7 +16,6 @@ import { actionOf, GameAction } from "./utils/actions"
 let gameEvent: GameEvent | null = null
 
 export const playerEventDispatcher = (playerId: PlayerId, event: PlayerEvent) => {
-  // console.log("Player ID => ", playerId, event.type)
 
   switch (event.type) {
     case PlayerEventType.TrickFinished:
@@ -53,7 +52,6 @@ export const environment: Environment = {
 }
 
 const gameLoop: GameAction = game => {
-  // console.log("GAME=====>\n", JSON.stringify(game, null, 2))
   if (game.stage === GameStage.Ended) {
     return actionOf(game)
   } else {

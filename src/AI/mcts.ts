@@ -1,21 +1,24 @@
 import { pipe } from "fp-ts/lib/pipeable"
 import { chain, getOrElse } from "fp-ts/lib/ReaderEither"
+import * as R from "ramda"
 import { defaultEnvironment } from "../Environment/domain"
 import { Environment } from "../Environment/model"
 import { PlayerEvent, PlayerEventType } from "../Events/model"
 import * as Game from "../Game/domain"
 import * as GameModel from "../Game/model"
 import * as MCTS from "../monte-carlo-tree-search/mcts"
+import { getEitherRight } from "../monte-carlo-tree-search/utils/fpts"
 import * as Move from "../Moves/domain"
 import * as MoveModel from "../Moves/model"
-import { PlayerId } from "../Players/model"
+import * as Player from "../Players/domain"
+import { PlayerId, PlayerPublicState } from "../Players/model"
 import { actionOf } from "../utils/actions"
 import { randomElement } from "../utils/misc"
 
 const playerEventDispatcher = (_: PlayerId, event: PlayerEvent) => {
   switch (event.type) {
     case PlayerEventType.Play:
-      return findBestMove(event.gameState)
+      return findBestMove(event.gameState, event.playerState)
   }
 
   return undefined
@@ -23,6 +26,10 @@ const playerEventDispatcher = (_: PlayerId, event: PlayerEvent) => {
 
 const environment: Environment = {
   ...defaultEnvironment,
+  config: {
+    ...defaultEnvironment.dealer,
+    auto: false,
+  },
   playerEventDispatcher,
 }
 
@@ -59,11 +66,22 @@ const config: MCTS.Config<GameModel.Game, MoveModel.Move> = {
   strategy,
 }
 
-const findBestMove = (game: GameModel.GamePublicState): MoveModel.Move => {
+export const findBestMove = (
+  gamePublicState: GameModel.GamePublicState,
+  playerPublicState: PlayerPublicState,
+): MoveModel.Move => {
+  const players = R.range(0, 4).map(i =>
+    i === gamePublicState.currentPlayerIndex
+      ? Player.createFromPublicState(playerPublicState)
+      : Player.create(`id${i}`, `Player ${i}`),
+  )
+
+  const game = getEitherRight(Game.createFromPublicState(gamePublicState, playerPublicState, players)(environment))
 
   const tree = MCTS.createTree(config)(game)
+  const { node } = MCTS.findBestNode(tree, 1)
 
-  const { node : { move } } = MCTS.findBestNode(tree, 20)
+  console.log("bestmove", node.move)
 
-  return move
+  return node.move
 }

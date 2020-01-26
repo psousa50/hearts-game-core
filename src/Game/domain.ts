@@ -6,13 +6,15 @@ import * as CardModel from "../Cards/model"
 import * as Events from "../Events/domain"
 import { PlayerEvent } from "../Events/model"
 import { Move, MoveType } from "../Moves/model"
-import { Player, PlayerId, PlayerPublicState } from "../Players/model"
+import * as Player from "../Players/domain"
+import * as PlayerModel from "../Players/model"
 import * as Trick from "../Tricks/domain"
 import { actionErrorOf, actionOf, ask, GameAction } from "../utils/actions"
 import { Game, GameErrorType, GamePublicState, GameStage } from "./model"
 
 const nextPlayer = (game: Game) => (game.currentPlayerIndex + 1) % game.players.length
-const isCurrentPlayer = (game: Game, playerId: PlayerId) => game.players[game.currentPlayerIndex].id === playerId
+const isCurrentPlayer = (game: Game, playerId: PlayerModel.PlayerId) =>
+  game.players[game.currentPlayerIndex].id === playerId
 
 const gameError = (type: GameErrorType) => ({
   type,
@@ -33,7 +35,7 @@ export const findWinningTrickPlayerIndex = (game: Game) => {
   return (i + game.currentPlayerIndex) % game.players.length
 }
 
-const sendEventToAllPlayers = (eventCreator: (player: Player) => PlayerEvent): GameAction => game =>
+const sendEventToAllPlayers = (eventCreator: (player: PlayerModel.Player) => PlayerEvent): GameAction => game =>
   pipe(
     ask(),
     chain(({ playerEventDispatcher }) => {
@@ -48,7 +50,7 @@ const sendPlayToCurrentPlayerIfAuto: GameAction = game =>
     chain(({ config }) => (config.auto ? nextPlay(game) : actionOf(game))),
   )
 
-export const create = (players: Player[]) =>
+export const create = (players: PlayerModel.Player[]) =>
   pipe(
     ask(),
     chain(({ dealer }) => {
@@ -57,7 +59,7 @@ export const create = (players: Player[]) =>
         currentPlayerIndex: 0,
         currentTrick: Trick.createTrick(),
         deck,
-        deckSize: deck.length,
+        deckSize: deck.cards.length,
         heartsBroken: false,
         lastTrick: Trick.createTrick(),
         players,
@@ -68,9 +70,28 @@ export const create = (players: Player[]) =>
     }),
   )
 
+export const createFromPublicState = (
+  gamePublicState: GamePublicState,
+  playerPublicState: PlayerModel.PlayerPublicState,
+  players: PlayerModel.Player[],
+) =>
+  pipe(
+    ask(),
+    chain(({ dealer }) => {
+      const deck = dealer.createDeck()
+      return actionOf({
+        ...gamePublicState,
+        currentPlayerIndex: players.findIndex(p => p.id === playerPublicState.id),
+        deck,
+        players: replacePlayer(players, playerPublicState.id, _ => Player.createFromPublicState(playerPublicState)),
+      })
+    }),
+  )
+
 export const getCurrentPlayer = (game: Game) => game.players[game.currentPlayerIndex]
 
-export const getPlayerIndex = (game: Game, playerId: PlayerId) => game.players.findIndex(p => p.id === playerId)
+export const getPlayerIndex = (game: Game, playerId: PlayerModel.PlayerId) =>
+  game.players.findIndex(p => p.id === playerId)
 
 export const start: GameAction = game =>
   pipe(
@@ -79,7 +100,7 @@ export const start: GameAction = game =>
       const shuffledDeck = dealer.shuffleDeck(game.deck)
       const distributedCards = R.range(1, game.players.length + 1).reduce(
         hands => {
-          const distributed = dealer.distributeCards(hands.deck, 13)
+          const distributed = dealer.distributeCards(hands.deck, game.deck.size / game.players.length)
           return {
             deck: distributed.deck,
             hands: [...hands.hands, distributed.cards],
@@ -94,6 +115,7 @@ export const start: GameAction = game =>
         ...player,
         hand: distributedCards.hands[i],
       }))
+
       const currentPlayerIndex = Math.max(
         players.findIndex(p => p.hand.some(c => Card.equals(c, twoOfClubs))),
         0,
@@ -126,15 +148,18 @@ export const nextPlay: GameAction = game =>
       )
     : actionOf(game)
 
-const removeCardFromHand = (card: CardModel.Card) => (player: Player) => ({
+const removeCardFromHand = (card: CardModel.Card) => (player: PlayerModel.Player) => ({
   ...player,
-  hand: player.hand.filter(c => c.faceValue !== card.faceValue || c.suit !== card.suit),
+  hand: player.hand.filter(c => !Card.equals(c, card)),
 })
 
-const replacePlayer = (players: readonly Player[], playerId: PlayerId, replaceFn: (player: Player) => Player) =>
-  players.map(p => (p.id === playerId ? replaceFn(p) : p))
+const replacePlayer = (
+  players: readonly PlayerModel.Player[],
+  playerId: PlayerModel.PlayerId,
+  replaceFn: (player: PlayerModel.Player) => PlayerModel.Player,
+) => players.map(p => (p.id === playerId ? replaceFn(p) : p))
 
-const doPlayerCardMove = (playerId: PlayerId, card: CardModel.Card): GameAction => game =>
+const doPlayerCardMove = (playerId: PlayerModel.PlayerId, card: CardModel.Card): GameAction => game =>
   actionOf({
     ...game,
     currentPlayerIndex: nextPlayer(game),
@@ -176,12 +201,12 @@ const doEndOfGame: GameAction = game =>
   )
 
 const checkEndOfGame: GameAction = game =>
-  game.trickCounter === game.deckSize / game.players.length ? doEndOfGame(game) : actionOf(game)
+  game.trickCounter === game.deck.size / game.players.length ? doEndOfGame(game) : actionOf(game)
 
-const dispatchPlayerMove = (playerId: PlayerId, move: Move): GameAction => game =>
+const dispatchPlayerMove = (playerId: PlayerModel.PlayerId, move: Move): GameAction => game =>
   move.type === MoveType.Card ? doPlayerCardMove(playerId, move.card)(game) : actionOf(game)
 
-const doPlayerMove = (player: Player, move: Move): GameAction => game =>
+const doPlayerMove = (player: PlayerModel.Player, move: Move): GameAction => game =>
   pipe(
     ask(),
     chain(({ validateMove }) =>
@@ -198,14 +223,18 @@ const doPlayerMove = (player: Player, move: Move): GameAction => game =>
     chain(sendPlayToCurrentPlayerIfAuto),
   )
 
-const getPlayer = (game: Game, playerId: PlayerId) => game.players.find(p => p.id === playerId)
+const getPlayer = (game: Game, playerId: PlayerModel.PlayerId) => game.players.find(p => p.id === playerId)
 
-export const played = (playerId: PlayerId, move: Move): GameAction => game =>
+export const played = (playerId: PlayerModel.PlayerId, move: Move): GameAction => game =>
   isCurrentPlayer(game, playerId)
     ? doPlayerMove(getPlayer(game, playerId)!, move)(game)
     : gameErrorOf(GameErrorType.InvalidPlayer)
 
-const isValidCardMove = (gameState: GamePublicState, playerState: PlayerPublicState, card: CardModel.Card) => {
+const isValidCardMove = (
+  gameState: GamePublicState,
+  playerState: PlayerModel.PlayerPublicState,
+  card: CardModel.Card,
+) => {
   const { currentTrick: trick } = gameState
   const isFirstCard = gameState.trickCounter === 0 && Trick.isEmpty(trick)
   const trickSuit = Trick.suit(trick)
@@ -219,5 +248,8 @@ const isValidCardMove = (gameState: GamePublicState, playerState: PlayerPublicSt
   return firstCardMustBe2OfClubs() && suitMustBeSameAsFirstCard() && canPlayHeartsOnlyIfBroken()
 }
 
-export const isValidMove = (gameState: GamePublicState, playerState: PlayerPublicState) => (move: Move) =>
+export const isValidMove = (gameState: GamePublicState, playerState: PlayerModel.PlayerPublicState) => (move: Move) =>
   move.type === MoveType.Card ? isValidCardMove(gameState, playerState, move.card) : false
+
+export const calcPlayerScore = (game: Game, playerId: PlayerModel.PlayerId) =>
+  getPlayer(game, playerId)!.tricks.reduce((score, trick) => score + Trick.score(trick), 0)

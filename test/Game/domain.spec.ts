@@ -1,4 +1,4 @@
-import { Either, fold, getOrElse, isLeft } from "fp-ts/lib/Either"
+import { Either, fold, getOrElse } from "fp-ts/lib/Either"
 import { identity } from "fp-ts/lib/function"
 import { pipe } from "fp-ts/lib/pipeable"
 import { chain } from "fp-ts/lib/ReaderEither"
@@ -6,9 +6,12 @@ import * as R from "ramda"
 import * as Card from "../../src/Cards/domain"
 import * as CardModel from "../../src/Cards/model"
 import { Suit } from "../../src/Cards/model"
-import * as Dealer from "../../src/Dealer/domain"
-import { Environment } from "../../src/Environment/model"
-import { PlayerEvent, PlayerEventType } from "../../src/Events/model"
+import { Dealer } from "../../src/dealer"
+import * as Deck from "../../src/Deck/domain"
+import * as DeckModel from "../../src/Deck/model"
+import { defaultEnvironment } from "../../src/Environment/domain"
+import { Config, Environment } from "../../src/Environment/model"
+import { GameEventType, PlayerEvent, PlayerEventType } from "../../src/Events/model"
 import * as Game from "../../src/Game/domain"
 import * as GameModel from "../../src/Game/model"
 import { GameStage } from "../../src/Game/model"
@@ -18,6 +21,7 @@ import * as Player from "../../src/Players/domain"
 import * as PlayerModels from "../../src/Players/model"
 import { PlayerId } from "../../src/Players/model"
 import * as Trick from "../../src/Tricks/domain"
+import { actionOf } from "../../src/utils/actions"
 import { DeepPartial } from "../../src/utils/types"
 
 type Event = {
@@ -25,9 +29,12 @@ type Event = {
   event: PlayerEvent
 }
 
+const twoOfClubs = Card.create(Suit.Clubs, 2)
+
 const defaultEventFor = ({ hand, id, name, tricks, type }: PlayerModels.Player) => ({
   event: {
     gameState: {
+      currentPlayerIndex: 0,
       currentTrick: Trick.createTrick(),
       heartsBroken: false,
       lastTrick: Trick.createTrick(),
@@ -44,6 +51,14 @@ const defaultEventFor = ({ hand, id, name, tricks, type }: PlayerModels.Player) 
   },
   playerId: id,
 })
+
+const createDeck = (cards: any) =>
+  ({
+    cards,
+    size: cards.length,
+  } as DeckModel.Deck)
+
+const createDeckWith = (numberOfCards: number) => Deck.create(0, numberOfCards / 4 - 1)
 
 const getRight = <L, A>(fa: Either<L, A>) =>
   pipe(
@@ -66,22 +81,28 @@ const createTrick = (cards: CardModel.Card[], firstPlayerIndex: number = 0) => (
   firstPlayerIndex,
 })
 
+const playFirstPlayerCard = (_: PlayerId, event: PlayerEvent) => {
+  switch (event.type) {
+    case PlayerEventType.Play:
+      return Move.createCardMove(event.playerState.hand[0])
+  }
+  return undefined
+}
+
 describe("game", () => {
   const getEnvironment = (overrides: DeepPartial<Environment> = {}): Environment => {
-    const defaultEnvironment = {
+    const defEnv: DeepPartial<Environment> = {
       config: {
-        auto: true,
+        auto: false,
       },
       dealer: {
-        createDeck: jest.fn(() => []),
-        distributeCards: jest.fn(() => ({ deck: [], cards: [] })),
-        shuffleDeck: jest.fn(),
+        shuffleDeck: (deck: DeckModel.Deck) => deck,
       },
-      playerEventDispatcher: jest.fn(),
+      playerEventDispatcher: playFirstPlayerCard,
       validateMove: () => () => true,
     }
 
-    return R.mergeDeepRight(defaultEnvironment, overrides)
+    return R.mergeDeepRight(R.mergeDeepRight(defaultEnvironment, defEnv), overrides)
   }
 
   const firstPlayer = Player.create("id1", "Player 1")
@@ -90,7 +111,7 @@ describe("game", () => {
 
   describe("On Creation", () => {
     it("creates a new game with a new Deck, on 'Idle' status", () => {
-      const newDeck = { some: "Deck" } as any
+      const newDeck = Deck.create()
       const environment = getEnvironment({
         dealer: { createDeck: jest.fn(() => newDeck) },
       })
@@ -103,7 +124,7 @@ describe("game", () => {
 
   describe("On Start", () => {
     it("shuffles the deck", () => {
-      const shuffledDeck = { some: "Deck" } as any
+      const shuffledDeck = Deck.create()
       const environment = getEnvironment({
         dealer: { shuffleDeck: jest.fn(() => shuffledDeck) },
       })
@@ -159,46 +180,25 @@ describe("game", () => {
 
     it("calls 'Play' on player that has the 2 of Clubs", () => {
       let events: Event[] = []
-      const twoOfClubs = Card.create(Suit.Clubs, 2)
-      const otherCard = Card.create(Suit.Hearts, 7)
-      const player1Cards = [otherCard, otherCard]
-      const player2Cards = [otherCard, twoOfClubs]
       const environment = getEnvironment({
-        dealer: {
-          createDeck: () => [otherCard, otherCard, otherCard, otherCard],
-          distributeCards: jest
-            .fn()
-            .mockImplementationOnce(() => ({ deck: [], cards: player1Cards }))
-            .mockImplementationOnce(() => ({ deck: [], cards: player2Cards })),
-        },
         playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
           events = [...events, { playerId, event }]
           return undefined
         },
       })
-      pipe(Game.create(twoPlayers), chain(Game.start))(environment)
 
-      const expectedEvents = [
-        R.mergeDeepRight(defaultEventFor(firstPlayer), {
-          event: {
-            gameState: {
-              stage: GameStage.Playing,
-              trickFirstPlayerIndex: 1,
-            },
-            playerState: {
-              hand: player1Cards,
-            },
-            type: PlayerEventType.GameStarted,
-          },
-          playerId: firstPlayer.id,
-        }),
-      ]
+      const game = getRight(pipe(Game.create(twoPlayers), chain(Game.start))(environment))
+      const playerWith2OfClubs = game.players.find(p => p.hand.some(c => Card.equals(c, twoOfClubs)))!
+      pipe(actionOf(game), chain(Game.nextPlay))(environment)
 
-      expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
+      const playEvents = events.filter(
+        e => e.event.type === PlayerEventType.Play && e.playerId === playerWith2OfClubs.id,
+      )
+
+      expect(playEvents.length).toEqual(1)
     })
 
     it("'Plays' the move returnd by playerEventDispatcher", () => {
-      const twoOfClubs = Card.create(Suit.Clubs, 2)
       const environment = getEnvironment({
         playerEventDispatcher: (_: PlayerId, event: PlayerEvent) => {
           switch (event.type) {
@@ -209,7 +209,7 @@ describe("game", () => {
         },
       })
 
-      const game = getRight(pipe(Game.create(twoPlayers), chain(Game.start))(environment))
+      const game = getRight(pipe(Game.create(twoPlayers), chain(Game.start), chain(Game.nextPlay))(environment))
 
       expect(game.currentTrick.cards).toEqual([twoOfClubs])
     })
@@ -224,36 +224,23 @@ describe("game", () => {
     ]
 
     describe("After a move", () => {
-      const gameAfterFirstMove = (environment: Environment, move: MoveModels.Move) => {
-        const game = Game.create(twoPlayers)
-
-        return pipe(game, chain(Game.start), chain(Game.played(firstPlayer.id, move)))(environment)
-      }
-
       it("should remove card from players hand", () => {
-        const card1 = Card.create(Suit.Clubs, 5)
-        const card2 = Card.create(Suit.Hearts, 7)
-        const move = Move.createCardMove(card2)
-        const player1Cards = [card1, card2]
-        const environment = getEnvironment({
-          dealer: {
-            distributeCards: jest
-              .fn()
-              .mockImplementationOnce(() => ({ deck: [], cards: player1Cards }))
-              .mockImplementationOnce(() => ({ deck: [], cards: [] })),
-          },
-        })
-        const game = getRight(gameAfterFirstMove(environment, move))
+        const game = getRight(pipe(Game.create(twoPlayers), chain(Game.start), chain(Game.nextPlay))(getEnvironment()))
 
-        expect(game.players[0].hand).toEqual([card1])
+        const playedCard = game.currentTrick.cards[0]
+        expect(game.players[0].hand.find(c => Card.equals(c, playedCard))).toBeUndefined()
       })
 
       it("should add player card move to current trick", () => {
-        const environment = getEnvironment()
-        const move = Move.createCardMove(Card.create(Suit.Clubs, 2))
-        const game = getRight(gameAfterFirstMove(environment, move))
+        const firstCard = Card.create(Suit.Clubs, 2)
+        const environment = getEnvironment({
+          dealer: {
+            createDeck: () => createDeck([firstCard]),
+          },
+        })
+        const game = getRight(pipe(Game.create(twoPlayers), chain(Game.start), chain(Game.nextPlay))(getEnvironment()))
 
-        expect(game.currentTrick).toEqual(createTrick([move.card]))
+        expect(game.currentTrick).toEqual(createTrick([firstCard]))
       })
 
       it("should call 'PlayerPlayed' on every player", () => {
@@ -261,342 +248,187 @@ describe("game", () => {
         const environment = getEnvironment({
           playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
             events = [...events, { playerId, event }]
-            return undefined
+            return playFirstPlayerCard(playerId, event)
           },
         })
-        const move = Move.createCardMove(Card.create(Suit.Clubs, 2))
+        const game = getRight(pipe(Game.create(twoPlayers), chain(Game.start), chain(Game.nextPlay))(environment))
 
-        const game = getRight(gameAfterFirstMove(environment, move))
-
-        const expectedEvents = game.players.map(player =>
-          R.mergeDeepRight(defaultEventFor(player), {
-            event: {
-              gameState: {
-                stage: GameStage.Playing,
-              },
-              move,
-              playing: firstPlayer,
-              type: PlayerEventType.PlayerPlayed,
-            },
-          }),
-        )
-
-        expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
+        const playerPlayedEvents = events.filter(e => e.event.type === PlayerEventType.PlayerPlayed)
+        expect(playerPlayedEvents[0].playerId).toBe(firstPlayer.id)
+        expect(playerPlayedEvents[1].playerId).toBe(secondPlayer.id)
       })
 
       it("should move to next player", () => {
         const environment = getEnvironment()
         const move = Move.createCardMove(Card.create(Suit.Clubs, 5))
-        const game = getRight(gameAfterFirstMove(environment, move))
+        const game = getRight(pipe(Game.create(twoPlayers), chain(Game.start), chain(Game.nextPlay))(getEnvironment()))
 
         expect(Game.getCurrentPlayer(game).id).toBe(secondPlayer.id)
       })
 
       it("should call 'Play' on next player", () => {
         let events: Event[] = []
-        const moveCard = Card.create(Suit.Clubs, 5)
-        const card1 = Card.create(Suit.Diamonds, 9)
-        const card2 = Card.create(Suit.Hearts, 7)
-        const player2Cards = [card1, card2]
         const environment = getEnvironment({
-          dealer: {
-            createDeck: Dealer.createDeck,
-            distributeCards: jest
-              .fn()
-              .mockImplementationOnce(() => ({ deck: [], cards: [] }))
-              .mockImplementationOnce(() => ({ deck: [], cards: player2Cards })),
-          },
           playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
             events = [...events, { playerId, event }]
-            return undefined
+            return playFirstPlayerCard(playerId, event)
           },
         })
-        gameAfterFirstMove(environment, Move.createCardMove(moveCard))
+        getRight(pipe(Game.create(twoPlayers), chain(Game.start), chain(Game.nextPlay))(environment))
 
-        const expectedEvents = [
-          R.mergeDeepRight(defaultEventFor(secondPlayer), {
-            event: {
-              gameState: {
-                currentTrick: createTrick([moveCard]),
-                stage: GameStage.Playing,
-              },
-              playerState: {
-                hand: player2Cards,
-              },
-              type: PlayerEventType.Play,
-            },
-            playerId: secondPlayer.id,
-          }),
-        ]
-
-        expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
+        const playEvents = events.filter(e => e.event.type === PlayerEventType.Play && e.playerId === firstPlayer.id)
+        expect(playEvents.length).toEqual(1)
       })
     })
 
     describe("When trick finishes", () => {
-      const moves = [
-        Move.createCardMove(Card.create(Suit.Clubs, 3)),
-        Move.createCardMove(Card.create(Suit.Clubs, 2)),
-        Move.createCardMove(Card.create(Suit.Clubs, 8)),
-        Move.createCardMove(Card.create(Suit.Diamonds, 10)),
+      const cards = [
+        Card.create(Suit.Clubs, 3),
+        Card.create(Suit.Clubs, 2),
+        Card.create(Suit.Clubs, 8),
+        Card.create(Suit.Diamonds, 10),
       ]
-      const trickFirstPlayer = 1
-      const lastTrick = createTrick([moves[1].card, moves[2].card, moves[3].card, moves[0].card], trickFirstPlayer)
+      const firstPlayerIndex = 1
+      const winningPlayerId = fourPlayers[2].id
 
-      const getTrickFinishedGame = (environment: Environment) => {
-        const game = Game.create(fourPlayers)
+      const lastTrick = {
+        cards: [cards[1], cards[2], cards[3], cards[0]],
+        firstPlayerIndex,
+      }
 
-        const env = R.mergeDeepRight(environment, {
+      const getTrickFinishedGame = (config: Config) => {
+        let events: Event[] = []
+        const environment = getEnvironment({
+          config,
           dealer: {
-            distributeCards: jest
-              .fn()
-              .mockImplementationOnce(() => ({ deck: [], cards: [moves[0].card] }))
-              .mockImplementationOnce(() => ({ deck: [], cards: [moves[1].card] }))
-              .mockImplementationOnce(() => ({ deck: [], cards: [moves[2].card] }))
-              .mockImplementationOnce(() => ({ deck: [], cards: [moves[3].card] })),
+            createDeck: () => createDeck(cards),
+          },
+          playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
+            events = [...events, { playerId, event }]
+            return playFirstPlayerCard(playerId, event)
           },
         })
 
-        return getRight(
+        const startedGame: GameModel.Game = {
+          ...getRight(Game.create(fourPlayers)(environment)),
+          currentPlayerIndex: firstPlayerIndex,
+        }
+
+        const game = getRight(
           pipe(
-            game,
+            actionOf(startedGame),
             chain(Game.start),
-            chain(Game.played(fourPlayers[1].id, moves[trickFirstPlayer])),
-            chain(Game.played(fourPlayers[2].id, moves[2])),
-            chain(Game.played(fourPlayers[3].id, moves[3])),
-            chain(Game.played(fourPlayers[0].id, moves[0])),
-          )(env),
+            chain(Game.nextPlay),
+            chain(Game.nextPlay),
+            chain(Game.nextPlay),
+          )(environment),
         )
+
+        return { game, events }
       }
 
       it("calls 'TrickFinished' on every player", () => {
-        let events: Event[] = []
-        const environment = getEnvironment({
-          playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
-            events = [...events, { playerId, event }]
-            return undefined
-          },
-        })
+        const { events } = getTrickFinishedGame({ auto: true })
 
-        const game = getTrickFinishedGame(environment)
-
-        const expectedEvents = game.players.map(player =>
-          R.mergeDeepRight(defaultEventFor(player), {
-            event: {
-              gameState: {
-                currentTrick: lastTrick,
-                stage: GameStage.Ended,
-                trickFirstPlayerIndex: 1,
-              },
-              type: PlayerEventType.TrickFinished,
-            },
-          }),
-        )
-
-        expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
+        const trickFinishedEvents = events.filter(e => e.event.type === PlayerEventType.TrickFinished)
+        expect(trickFinishedEvents[0].playerId).toBe(firstPlayer.id)
+        expect(trickFinishedEvents[1].playerId).toBe(secondPlayer.id)
       })
 
       it("adds current trick to winning player", () => {
-        const environment = getEnvironment()
-        const trickFinishedGame = getTrickFinishedGame(environment)
+        const { game } = getTrickFinishedGame({ auto: true })
 
-        expect(trickFinishedGame.players[2].tricks).toEqual([lastTrick])
+        expect(game.players[2].tricks).toEqual([game.lastTrick])
       })
 
       it("clears current trick and saves it in lastTrick", () => {
-        const environment = getEnvironment()
-        const trickFinishedGame = getTrickFinishedGame(environment)
+        const { game } = getTrickFinishedGame({ auto: true })
 
         const emptyTrick = Trick.createTrick()
-        expect(trickFinishedGame.currentTrick).toEqual(emptyTrick)
-        expect(trickFinishedGame.lastTrick).toEqual(lastTrick)
+        expect(game.currentTrick).toEqual(emptyTrick)
+        expect(game.lastTrick).toEqual(lastTrick)
       })
 
       it("set's the current player to the winning player", () => {
-        const environment = getEnvironment()
-        const trickFinishedGame = getTrickFinishedGame(environment)
+        const { game } = getTrickFinishedGame({ auto: true })
 
-        expect(trickFinishedGame.currentPlayerIndex).toEqual(2)
+        expect(game.currentPlayerIndex).toEqual(2)
       })
 
       describe("calls 'Play' on the winning player", () => {
-        const setupTrickFinishedGame = (auto: boolean) => {
-          let events: Event[] = []
-          const someCard = Card.create(Suit.Clubs, 5)
-          const playerCards = [someCard, someCard]
-          const environment = getEnvironment({
-            config: {
-              auto,
-            },
-            dealer: {
-              createDeck: () => [someCard, someCard, someCard, someCard, someCard, someCard, someCard, someCard],
-              distributeCards: jest
-                .fn()
-                .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
-                .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
-                .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
-                .mockImplementationOnce(() => ({ deck: [], cards: playerCards })),
-            },
-            playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
-              events = [...events, { playerId, event }]
-              return undefined
-            },
-          })
-          const trickFinishedGame = getTrickFinishedGame(environment)
-
-          return { events, trickFinishedGame, winningPlayer: trickFinishedGame.players[2] }
-        }
-
         it("if auto is true", () => {
-          const { events, winningPlayer } = setupTrickFinishedGame(true)
+          const { events } = getTrickFinishedGame({ auto: true })
+          const playEvents = events.filter(e => e.event.type === PlayerEventType.Play && e.playerId === winningPlayerId)
 
-          const expectedEvents = [
-            R.mergeDeepRight(defaultEventFor(winningPlayer), {
-              event: {
-                gameState: {
-                  lastTrick,
-                  stage: GameStage.Playing,
-                  trickCounter: 1,
-                  trickFirstPlayerIndex: 2,
-                },
-                type: PlayerEventType.Play,
-              },
-            }),
-          ]
-
-          expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
+          expect(playEvents.length).toEqual(1)
         })
 
         it("unless auto is false", () => {
-          const { events, winningPlayer } = setupTrickFinishedGame(false)
+          const { events } = getTrickFinishedGame({ auto: false })
 
           expect(
             events.find(
               e =>
                 e.event.type === PlayerEventType.Play &&
-                e.playerId === winningPlayer.id &&
+                e.playerId === winningPlayerId &&
                 e.event.gameState.trickCounter === 1,
             ),
           ).toBeUndefined()
         })
 
         it("when 'next' is called, if auto is false", () => {
-          let events: Event[] = []
-          const { trickFinishedGame, winningPlayer } = setupTrickFinishedGame(false)
+          const { events } = getTrickFinishedGame({ auto: false })
 
-          const environment = getEnvironment({
-            config: {
-              auto: false,
-            },
-            playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
-              events = [...events, { playerId, event }]
-              return undefined
-            },
-          })
-          pipe(trickFinishedGame, Game.nextPlay)(environment)
+          const playEvents = events.filter(e => e.event.type === PlayerEventType.Play && e.playerId === winningPlayerId)
 
-          const expectedEvents = [
-            R.mergeDeepRight(defaultEventFor(winningPlayer), {
-              event: {
-                gameState: {
-                  lastTrick,
-                  stage: GameStage.Playing,
-                  trickCounter: 1,
-                  trickFirstPlayerIndex: 2,
-                },
-                type: PlayerEventType.Play,
-              },
-            }),
-          ]
-
-          expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
+          expect(playEvents.length).toEqual(1)
         })
       })
     })
 
     describe("When game ends", () => {
-      const getFinishedGame = (players: PlayerModels.Player[], environment: Environment, move: MoveModels.Move) => {
-        return getRight(
+      const getFinishedGame = () => {
+        let events: Event[] = []
+        const environment = getEnvironment({
+          dealer: {
+            createDeck: () => createDeckWith(4),
+          },
+          playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
+            events = [...events, { playerId, event }]
+            return playFirstPlayerCard(playerId, event)
+          },
+        })
+
+        const game = getRight(
           pipe(
-            Game.create(players),
+            Game.create(twoPlayers),
             chain(Game.start),
-            chain(Game.played(firstPlayer.id, move)),
-            chain(Game.played(secondPlayer.id, move)),
-            chain(Game.played(firstPlayer.id, move)),
-            chain(Game.played(secondPlayer.id, move)),
+            chain(Game.nextPlay),
+            chain(Game.nextPlay),
+            chain(Game.nextPlay),
+            chain(Game.nextPlay),
           )(environment),
         )
+
+        return { game, events }
       }
 
       it("should set stage to 'GameEnded", () => {
-        const someCard = Card.create(Suit.Clubs, 5)
-        const move = Move.createCardMove(someCard)
-        const environment = getEnvironment({
-          dealer: {
-            createDeck: () => [someCard, someCard, someCard, someCard],
-          },
-        })
-        const finishedGame = getFinishedGame(twoPlayers, environment, move)
+        const { game } = getFinishedGame()
 
-        expect(finishedGame.stage).toEqual(GameStage.Ended)
+        expect(game.stage).toEqual(GameStage.Ended)
       })
 
       it("should call 'GameEnded' on every player", () => {
-        let events: Event[] = []
-        const someCard = Card.create(Suit.Clubs, 5)
-        const move = Move.createCardMove(someCard)
-        const playerCards = [someCard, someCard]
-        const environment = getEnvironment({
-          dealer: {
-            createDeck: () => [someCard, someCard, someCard, someCard],
-            distributeCards: jest
-              .fn()
-              .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
-              .mockImplementationOnce(() => ({ deck: [], cards: playerCards })),
-          },
-          playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
-            events = [...events, { playerId, event }]
-            return undefined
-          },
-        })
+        const { events } = getFinishedGame()
 
-        const game = getFinishedGame(twoPlayers, environment, move)
-
-        const expectedEvents = game.players.map(player =>
-          R.mergeDeepRight(defaultEventFor(player), {
-            event: {
-              gameState: {
-                lastTrick: createTrick([someCard, someCard]),
-                stage: GameStage.Ended,
-                trickCounter: 2,
-              },
-              type: PlayerEventType.GameEnded,
-            },
-          }),
-        )
-
-        expect(events).toEqual(expect.arrayContaining(expectedEvents.map(expect.objectContaining)))
+        const gameEndedEvents = events.filter(e => e.event.type === PlayerEventType.GameEnded)
+        expect(gameEndedEvents[0].playerId).toBe(firstPlayer.id)
+        expect(gameEndedEvents[1].playerId).toBe(secondPlayer.id)
       })
 
       it("should not call 'Play' on any player", () => {
-        let events: Event[] = []
-        const someCard = Card.create(Suit.Clubs, 5)
-        const move = Move.createCardMove(someCard)
-        const playerCards = [someCard, someCard]
-        const environment = getEnvironment({
-          dealer: {
-            createDeck: () => [someCard, someCard, someCard, someCard],
-            distributeCards: jest
-              .fn()
-              .mockImplementationOnce(() => ({ deck: [], cards: playerCards }))
-              .mockImplementationOnce(() => ({ deck: [], cards: playerCards })),
-          },
-          playerEventDispatcher: (playerId: PlayerId, event: PlayerEvent) => {
-            events = [...events, { playerId, event }]
-            return undefined
-          },
-        })
-        getFinishedGame(twoPlayers, environment, move)
+        const { events } = getFinishedGame()
 
         expect(events.filter(e => e.event.type === PlayerEventType.Play).length).toBeLessThan(5)
       })
@@ -654,76 +486,79 @@ describe("game", () => {
 
     describe("valid if", () => {
       it("suit is the same as the first card", () => {
-        const game = getRight(
-          pipe(
-            Game.create(twoPlayers),
-            chain(Game.start),
-            chain(Game.played(firstPlayer.id, Move.createCardMove(Card.create(Suit.Clubs, 2)))),
-          )(getEnvironment()),
-        )
-        const validMove = Move.createCardMove(Card.create(Suit.Clubs, 3))
+        const game = {
+          currentTrick: { cards: [Card.create(Suit.Diamonds, 5)], firstPlayerIndex: 0 },
+          players: [{}, { hand: [Card.create(Suit.Diamonds, 3)] }],
+          trickCounter: 0,
+        } as any
 
-        expect(Game.isValidMove(game, secondPlayer)(validMove)).toBeTruthy()
+        const validMove = Move.createCardMove(game.players[1].hand[0])
+
+        expect(Game.isValidMove(game, game.players[1])(validMove)).toBeTruthy()
       })
 
       it("suit is different but player has no card of the same suit", () => {
-        const game = getRight(
-          pipe(
-            Game.create(twoPlayers),
-            chain(Game.start),
-            chain(Game.played(firstPlayer.id, twoOfClubsMove)),
-          )(getEnvironment()),
-        )
-        const validMove = Move.createCardMove(Card.create(Suit.Clubs, 3))
-        const player = { hand: [Card.create(Suit.Hearts, 5)] } as any
+        const game = {
+          currentTrick: { cards: [Card.create(Suit.Diamonds, 5)], firstPlayerIndex: 0 },
+          players: [{}, { hand: [Card.create(Suit.Hearts, 3)] }],
+          trickCounter: 0,
+        } as any
 
-        expect(Game.isValidMove(game, player)(validMove)).toBeTruthy()
+        const validMove = Move.createCardMove(game.players[1].hand[0])
+
+        expect(Game.isValidMove(game, game.players[1])(validMove)).toBeTruthy()
       })
 
       it("first card is Hearts but hearts as already been drawn", () => {
-        const game = getRight(
-          pipe(
-            Game.create(twoPlayers),
-            chain(Game.played(firstPlayer.id, twoOfClubsMove)),
-            chain(Game.played(secondPlayer.id, Move.createCardMove(Card.create(Suit.Hearts, 5)))),
-          )(getEnvironment()),
-        )
+        const game = {
+          currentTrick: { cards: [], firstPlayerIndex: 0 },
+          heartsBroken: true,
+          players: [{ hand: [Card.create(Suit.Hearts, 3), Card.create(Suit.Clubs, 10)] }, {}],
+          trickCounter: 1,
+        } as any
 
-        const heartsCard = Card.create(Suit.Hearts, 3)
-        const validMove = Move.createCardMove(heartsCard)
+        const validMove = Move.createCardMove(game.players[0].hand[0])
 
-        expect(Game.isValidMove(game, firstPlayer)(validMove)).toBeTruthy()
+        expect(Game.isValidMove(game, game.players[0])(validMove)).toBeTruthy()
       })
 
       it("card is Hearts and hearts has not been drawn yet but player only have hearts", () => {
-        const game = getRight(
-          pipe(Game.create(twoPlayers), chain(Game.played(firstPlayer.id, twoOfClubsMove)))(getEnvironment()),
-        )
-        const player = { hand: [Card.create(Suit.Hearts, 5)] } as any
-        const heartsCard = Card.create(Suit.Hearts, 3)
-        const validMove = Move.createCardMove(heartsCard)
+        const game = {
+          currentTrick: { cards: [], firstPlayerIndex: 0 },
+          heartsBroken: false,
+          players: [{ hand: [Card.create(Suit.Hearts, 3), Card.create(Suit.Hearts, 10)] }, {}],
+          trickCounter: 1,
+        } as any
 
-        expect(Game.isValidMove(game, player)(validMove)).toBeTruthy()
+        const validMove = Move.createCardMove(game.players[0].hand[0])
+
+        expect(Game.isValidMove(game, game.players[0])(validMove)).toBeTruthy()
       })
     })
 
     describe("invalid if", () => {
       it("first trick card is not the 2 of clubs", () => {
-        const not2OfClubs = Card.create(Suit.Clubs, 3)
-        const invalidMove = Move.createCardMove(not2OfClubs)
+        const game = {
+          currentTrick: { cards: [], firstPlayerIndex: 0 },
+          players: [{ hand: [Card.create(Suit.Hearts, 2)] }, {}],
+          trickCounter: 0,
+        } as any
 
-        const game = getRight(Game.create(twoPlayers)(getEnvironment()))
+        const validMove = Move.createCardMove(game.players[0].hand[0])
 
-        expect(Game.isValidMove(game, firstPlayer)(invalidMove)).toBeFalsy()
+        expect(Game.isValidMove(game, game.players[0])(validMove)).toBeFalsy()
       })
 
       it("first card is Hearts but hearts has not been drawn yet", () => {
-        const game = getRight(Game.create(twoPlayers)(getEnvironment()))
+        const game = {
+          currentTrick: { cards: [], firstPlayerIndex: 0 },
+          players: [{ hand: [Card.create(Suit.Hearts, 2), Card.create(Suit.Spades, 2)] }, {}],
+          trickCounter: 1,
+        } as any
 
-        const heartsCard = Card.create(Suit.Hearts, 3)
-        const invalidMove = Move.createCardMove(heartsCard)
+        const validMove = Move.createCardMove(game.players[0].hand[0])
 
-        expect(Game.isValidMove(game, firstPlayer)(invalidMove)).toBeFalsy()
+        expect(Game.isValidMove(game, game.players[0])(validMove)).toBeFalsy()
       })
     })
   })

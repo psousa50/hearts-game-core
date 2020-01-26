@@ -5,9 +5,10 @@ import { GameEvent, GameEventType, PlayerEvent, PlayerEventType } from "./model"
 
 const createPlayerEventBase = (
   { hand, id, name, tricks, type }: Player,
-  { currentTrick, heartsBroken, lastTrick, stage, trickCounter, trickFirstPlayerIndex }: Game,
+  { currentPlayerIndex, currentTrick, heartsBroken, lastTrick, stage, trickCounter, trickFirstPlayerIndex }: Game,
 ) => ({
   gameState: {
+    currentPlayerIndex,
     currentTrick,
     heartsBroken,
     lastTrick,

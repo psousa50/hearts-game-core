@@ -1,4 +1,4 @@
-import { Deck } from "../Dealer/model"
+import { Deck } from "../Deck/model"
 import { Move } from "../Moves/model"
 import { Player, PlayerPublicState } from "../Players/model"
 import { Trick } from "../Tricks/model"
@@ -21,6 +21,7 @@ export type GameError = {
 
 export type GamePublicState = Readonly<{
   currentTrick: Trick
+  currentPlayerIndex: number
   lastTrick: Trick
   trickFirstPlayerIndex: number
   stage: GameStage
@@ -31,8 +32,6 @@ export type GamePublicState = Readonly<{
 export type Game = Readonly<GamePublicState & {
   deck: Deck
   players: readonly Player[]
-  currentPlayerIndex: number
-  deckSize: number
 }>
 
 export type MoveValidator = (gameState: GamePublicState, playerState: PlayerPublicState) => (move: Move) => boolean

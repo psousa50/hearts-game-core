@@ -1,3 +1,4 @@
+import { score as cardScore } from "../Cards/domain"
 import { Card } from "../Cards/model"
 import { Trick } from "./model"
 
@@ -18,3 +19,5 @@ export const addCard = (trick: Trick, card: Card, playerIndex: number) => ({
   cards: [...trick.cards, card],
   firstPlayerIndex: isEmpty(trick) ? playerIndex : trick.firstPlayerIndex,
 })
+
+export const score = (trick: Trick) => trick.cards.reduce((s, card) => s + cardScore(card), 0)
