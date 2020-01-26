@@ -20,13 +20,14 @@ export type GameError = {
 }
 
 export type GamePublicState = Readonly<{
-  currentTrick: Trick
   currentPlayerIndex: number
+  currentTrick: Trick
+  heartsBroken: boolean
   lastTrick: Trick
-  trickFirstPlayerIndex: number
   stage: GameStage
   trickCounter: number
-  heartsBroken: boolean
+  trickFirstPlayerIndex: number
+  tricks: Trick[]
 }>
 
 export type Game = Readonly<GamePublicState & {

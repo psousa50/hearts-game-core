@@ -40,6 +40,7 @@ const defaultEventFor = ({ hand, id, name, tricks, type }: PlayerModels.Player) 
       lastTrick: Trick.createTrick(),
       trickCounter: 0,
       trickFirstPlayerIndex: 0,
+      tricks: [],
     },
     playerState: {
       hand,
@@ -341,12 +342,13 @@ describe("game", () => {
         expect(game.players[2].tricks).toEqual([game.lastTrick])
       })
 
-      it("clears current trick and saves it in lastTrick", () => {
+      it("clears current trick, saves it in lastTrick and add it to tricks", () => {
         const { game } = getTrickFinishedGame({ auto: true })
 
         const emptyTrick = Trick.createTrick()
         expect(game.currentTrick).toEqual(emptyTrick)
         expect(game.lastTrick).toEqual(lastTrick)
+        expect(game.tricks).toEqual([lastTrick])
       })
 
       it("set's the current player to the winning player", () => {

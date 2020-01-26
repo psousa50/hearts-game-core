@@ -66,6 +66,7 @@ export const create = (players: PlayerModel.Player[]) =>
         stage: GameStage.Idle,
         trickCounter: 0,
         trickFirstPlayerIndex: 0,
+        tricks: [],
       })
     }),
   )
@@ -183,6 +184,7 @@ const doTrickFinished: GameAction = game => {
       })),
       trickCounter: game.trickCounter + 1,
       trickFirstPlayerIndex: winningTrickPlayedIndex,
+      tricks: [...game.tricks, game.currentTrick],
     }),
     chain(sendEventToAllPlayers(player => Events.createPlayerEventTrickFinished(player, game))),
   )
