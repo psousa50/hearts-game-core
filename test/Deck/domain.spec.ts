@@ -1,4 +1,4 @@
-
+import * as Card from "../../src/Cards/domain"
 import * as Deck from "../../src/Deck/domain"
 
 it("Creates 52 card deck", () => {
@@ -12,7 +12,7 @@ it("Creates 52 card deck", () => {
 it("Shuffles a deck", () => {
   const c1 = { some: "card1" } as any
   const c2 = { some: "card2" } as any
-  const deck = Deck.shuffle({ cards: [c1, c2]} as any)
+  const deck = Deck.shuffle({ cards: [c1, c2] } as any)
 
   expect((deck.cards[0] === c1 && deck.cards[1] === c2) || (deck.cards[0] === c2 && deck.cards[1] === c1)).toBeTruthy()
 })
@@ -26,6 +26,19 @@ it("distribute cards", () => {
   expect(deck.cards).toEqual([3, 4, 5, 6])
 })
 
-// it("buildComplement", () => {
-//   const cards = createFromList()
-// })
+describe("buildComplement", () => {
+  it("on a group of cards", () => {
+    const cards = Card.fromList("2C 3H 2S")
+
+    expect(Deck.buildComplement(cards, 2, 3)).toEqual(expect.arrayContaining(Card.fromList("3C 2H 3S 2D 3D")))
+  })
+
+  it("for an empty list of cards", () => {
+    expect(Deck.buildComplement([], 2, 3)).toEqual(expect.arrayContaining(Card.fromList("2C 3C 2H 3H 2S 3S 2D 3D")))
+  })
+
+  it("for a full deck", () => {
+    const cards = Card.fromList("2C 3C 2H 3H 2S 3S 2D 3D")
+    expect(Deck.buildComplement(cards, 2, 3)).toEqual([])
+  })
+})

@@ -35,8 +35,44 @@ export const distributeCards = (deck: Deck, count: number) => ({
 
 export const sortCards = (cards: CardModel.Card[]) => R.sort(Card.order, cards)
 
-// export const buildComplement = (
-//   card: CardModel.Card[],
-//   minFaceValue: number = CardModel.minFaceValue,
-//   maxFaceValue: number = CardModel.maxFaceValue,
-// ) => {}
+const powersOfTwo = R.range(0, 13).map(i => Math.pow(2, i))
+
+export const buildComplement = (
+  cards: CardModel.Card[],
+  minFaceValue: number = CardModel.maxFaceValue,
+  maxFaceValue: number = CardModel.maxFaceValue,
+) => {
+  const initialMasks = {
+    [CardModel.Suit.Hearts]: 0,
+    [CardModel.Suit.Clubs]: 0,
+    [CardModel.Suit.Diamonds]: 0,
+    [CardModel.Suit.Spades]: 0,
+  }
+
+  const suitMasks = cards.reduce(
+    (acc, card) => ({
+      ...acc,
+      [card.suit]: acc[card.suit] + powersOfTwo[card.faceValue - minFaceValue],
+    }),
+    initialMasks,
+  )
+
+  const revertedMasks = R.keys(suitMasks).reduce(
+    (acc, k) => ({
+      ...acc,
+      [k]: powersOfTwo[maxFaceValue] - 1 - suitMasks[k],
+    }),
+    initialMasks,
+  )
+
+  // tslint:disable: no-bitwise
+  return R.flatten(
+    R.keys(revertedMasks).map(suit => {
+      const mask = revertedMasks[suit]
+      const values = R.range(minFaceValue, maxFaceValue + 1)
+        .map(faceValue => ((powersOfTwo[faceValue - 2] & mask) === 0 ? undefined : faceValue))
+        .filter(R.identity)
+      return values.map(v => Card.create(suit, v!))
+    }),
+  )
+}
