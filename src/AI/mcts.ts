@@ -59,6 +59,11 @@ const availableMoves = (game: GameModel.Game) => {
   return moves.filter(Game.isValidMove(game, player))
 }
 
+const availableMovesForPlayer = (game: GameModel.GamePublicState, player: PlayerPublicState) => {
+  const moves = player.hand.map(Move.createCardMove)
+  return moves.filter(Game.isValidMove(game, player))
+}
+
 const isFinal = (game: GameModel.Game) =>
   game.players.reduce((totalCards, player) => totalCards + player.hand.length, 0) === 0
 
@@ -89,8 +94,9 @@ export const findBestMove = (
   playerPublicState: PlayerPublicState,
   options: Options = defaultOptions,
 ): MoveModel.Move => {
-  if (playerPublicState.hand.length === 1) {
-    return Move.createCardMove(playerPublicState.hand[0])
+  const moves = availableMovesForPlayer(gamePublicState, playerPublicState)
+  if (moves.length === 1) {
+    return moves[0]
   }
 
   const game = getEitherRight(Game.createFromPublicState(gamePublicState, playerPublicState, [])(environment))
