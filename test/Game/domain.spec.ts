@@ -38,7 +38,6 @@ const defaultEventFor = ({ hand, id, name, tricks, type }: PlayerModels.Player) 
       lastTrick: Trick.createTrick(),
       playersCount: 0,
       trickCounter: 0,
-      trickFirstPlayerIndex: 0,
       tricks: [],
     },
     playerState: {

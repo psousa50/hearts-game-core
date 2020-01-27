@@ -27,7 +27,6 @@ export type GamePublicState = Readonly<{
   playersCount: number,
   stage: GameStage
   trickCounter: number
-  trickFirstPlayerIndex: number
   tricks: Trick[]
 }>
 

@@ -13,7 +13,6 @@ const createPlayerEventBase = (
     playersCount,
     stage,
     trickCounter,
-    trickFirstPlayerIndex,
     tricks: gameTricks,
   }: Game,
 ) => ({
@@ -25,7 +24,6 @@ const createPlayerEventBase = (
     playersCount,
     stage,
     trickCounter,
-    trickFirstPlayerIndex,
     tricks: gameTricks,
   },
   playerState: {

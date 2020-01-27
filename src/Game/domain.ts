@@ -66,7 +66,6 @@ export const create = (players: PlayerModel.Player[]) =>
         playersCount: 0,
         stage: GameStage.Idle,
         trickCounter: 0,
-        trickFirstPlayerIndex: 0,
         tricks: [],
       }
       return actionOf(setPlayers(game, players))
@@ -136,7 +135,6 @@ export const start: GameAction = game =>
         deck: distributedCards.deck,
         players,
         stage: GameStage.Playing,
-        trickFirstPlayerIndex: currentPlayerIndex,
       }
 
       return pipe(
@@ -199,7 +197,6 @@ const doTrickFinished: GameAction = game => {
         tricks: [...p.tricks, game.currentTrick],
       })),
       trickCounter: game.trickCounter + 1,
-      trickFirstPlayerIndex: winningTrickPlayedIndex,
       tricks: [...game.tricks, game.currentTrick],
     }),
     chain(sendEventToAllPlayers(player => Events.createPlayerEventTrickFinished(player, game))),
