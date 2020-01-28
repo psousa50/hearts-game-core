@@ -101,7 +101,7 @@ describe("game", () => {
       validateMove: () => () => true,
     }
 
-    return buildEnvironment (R.mergeDeepRight(defaultEnvironment, overrides))
+    return buildEnvironment(R.mergeDeepRight(defaultEnvironment, overrides))
   }
 
   const firstPlayer = Player.create("id1", "Player 1")
@@ -154,7 +154,6 @@ describe("game", () => {
       const startedEvents = events.filter(e => e.event.type === PlayerEventType.GameStarted)
       expect(startedEvents[0].playerId).toBe(firstPlayer.id)
       expect(startedEvents[1].playerId).toBe(secondPlayer.id)
-
     })
 
     it("calls 'Play' on player that has the 2 of Clubs", () => {
@@ -540,6 +539,57 @@ describe("game", () => {
 
         expect(Game.isValidMove(game, game.players[0])(validMove)).toBeFalsy()
       })
+    })
+  })
+
+  describe("hasPlayed", () => {
+    it("has played if after first and before current", () => {
+      const game = {
+        currentPlayerIndex: 1,
+        currentTrick: {
+          cards: Card.fromList("2C 6C 4C"),
+          firstPlayerIndex: 2,
+        },
+        playersCount: 4,
+      } as any
+
+      expect(Game.hasPlayed(game, 0)).toBeTruthy()
+    })
+
+    it("didn't play yet if trick is empty", () => {
+      const game = {
+        currentTrick: {
+          cards: [],
+          firstPlayerIndex: 0,
+        },
+        playersCount: 4,
+      } as any
+
+      expect(Game.hasPlayed(game, 0)).toBeFalsy()
+    })
+
+    it("didn't play yet if current", () => {
+      const game = {
+        currentTrick: {
+          cards: Card.fromList("2C 6C 4C"),
+          firstPlayerIndex: 0,
+        },
+        playersCount: 4,
+      } as any
+
+      expect(Game.hasPlayed(game, 3)).toBeFalsy ()
+    })
+
+    it("didn't play yet if after current", () => {
+      const game = {
+        currentTrick: {
+          cards: Card.fromList("2C 6C 4C"),
+          firstPlayerIndex: 0,
+        },
+        playersCount: 4,
+      } as any
+
+      expect(Game.hasPlayed(game, 3)).toBeFalsy()
     })
   })
 })

@@ -1,4 +1,4 @@
-import { Deck } from "../Deck/model"
+import { Deck, DeckInfo } from "../Deck/model"
 import { Move } from "../Moves/model"
 import { Player, PlayerPublicState } from "../Players/model"
 import { Trick } from "../Tricks/model"
@@ -22,6 +22,7 @@ export type GameError = {
 export type GamePublicState = Readonly<{
   currentPlayerIndex: number
   currentTrick: Trick
+  deckInfo: DeckInfo,
   heartsBroken: boolean
   lastTrick: Trick
   playersCount: number,

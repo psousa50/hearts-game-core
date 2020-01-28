@@ -1,8 +1,10 @@
 import { pipe } from "fp-ts/lib/pipeable"
 import { chain, getOrElse } from "fp-ts/lib/ReaderEither"
 import * as R from "ramda"
+import * as Card from "../Cards/domain"
 import * as CardModel from "../Cards/model"
 import * as Deck from "../Deck/domain"
+import * as DeckModel from "../Deck/model"
 import { buildEnvironment } from "../Environment/domain"
 import { Environment } from "../Environment/model"
 import { PlayerEvent, PlayerEventType } from "../Events/model"
@@ -89,30 +91,52 @@ const config: MCTS.Config<GameModel.Game, MoveModel.Move> = {
   strategy,
 }
 
-export const findBestMove = (
+export const createGameForSimulation = (shuffle: (deck: DeckModel.Deck) => DeckModel.Deck) => (
   gamePublicState: GameModel.GamePublicState,
   playerPublicState: PlayerPublicState,
-  options: Options = defaultOptions,
-): MoveModel.Move => {
-  const moves = availableMovesForPlayer(gamePublicState, playerPublicState)
-  if (moves.length === 1) {
-    return moves[0]
-  }
-
+) => {
   const game = getEitherRight(Game.createFromPublicState(gamePublicState, playerPublicState, [])(environment))
+  const { deckInfo, playersCount, trickCounter } = gamePublicState
 
-  const cardsOut = [
+  const playedCards = [
     ...R.flatten(gamePublicState.tricks.map(t => t.cards)),
     ...gamePublicState.currentTrick.cards,
+  ]
+
+  const cardsOut = [
+    ...playedCards,
     ...playerPublicState.hand,
   ]
 
-  const deckCards = Deck.buildComplement(cardsOut, 2, 14)
-  const shuffledDeck = Deck.shuffle(Deck.fromCards(deckCards))
+  const deck = Deck.buildComplement(cardsOut, deckInfo.minFaceValue, deckInfo.maxFaceValue)
+  const cardsToDistribute = shuffle(Deck.fromCards(deck))
 
-  const cardsCount = Math.floor(
-    (shuffledDeck.size + gamePublicState.currentTrick.cards.length) / (gamePublicState.playersCount - 1),
-  )
+  // console.log(
+  //   "CO =====>\n",
+  //   "TRICKS", Card.toList(R.flatten(gamePublicState.tricks.map(t => t.cards))),
+  //   R.flatten(gamePublicState.tricks.map(t => t.cards)).length,
+  //   "\n",
+  //   "TRICK", Card.toList(gamePublicState.currentTrick.cards),
+  //   "\n",
+  //   "HAND", Card.toList(playerPublicState.hand),
+  //   "\n",
+  //   "CO", Card.toList(cardsOut),
+  //   cardsOut.length, "\n",
+  //   "DIST", Card.toList(cardsToDistribute.cards),
+  //   cardsToDistribute.cards.length,
+  // )
+
+  // console.log(
+  //   "FIND=====>\n",
+  //   Card.toList(gamePublicState.currentTrick.cards),
+  //   gamePublicState.currentTrick.firstPlayerIndex,
+  //   gamePublicState.currentPlayerIndex,
+  //   gamePublicState.trickCounter,
+  //   R.flatten(gamePublicState.tricks.map(t => t.cards)).length,
+  // )
+
+  const cardsCountPerPlayer = (deckInfo.size - trickCounter * playersCount) / playersCount
+
   const handsSlice = R.range(0, 4).reduce(
     (acc, playerIndex) => {
       if (playerIndex === gamePublicState.currentPlayerIndex) {
@@ -121,10 +145,10 @@ export const findBestMove = (
           hands: [...acc.hands, []],
         }
       } else {
-        const yetToPlay = Game.hasPlayed(game, playerIndex) ? -1 : 0
-        const playerCardsCount = cardsCount + yetToPlay
+        const alreadyPlayedAdjustment = Game.hasPlayed(game, playerIndex) ? -1 : 0
+        const playerCardsCount = cardsCountPerPlayer + alreadyPlayedAdjustment
         return {
-          hands: [...acc.hands, shuffledDeck.cards.slice(acc.position, acc.position + playerCardsCount)],
+          hands: [...acc.hands, cardsToDistribute.cards.slice(acc.position, acc.position + playerCardsCount)],
           position: acc.position + playerCardsCount,
         }
       }
@@ -143,10 +167,35 @@ export const findBestMove = (
   // console.log("2 =====>\n", Card.toList(players[2].hand), players[2].hand.length)
   // console.log("3 =====>\n", Card.toList(players[3].hand), players[3].hand.length)
 
-  const gameWithPlayers = Game.setPlayers(game, players)
+  // console.log("currentTrick=====>\n", game.currentTrick)
+  // console.log("currentPlayerIndex=====>\n", game.currentPlayerIndex)
 
-  const tree = MCTS.createTree(config)(gameWithPlayers)
+  return { ...Game.setPlayers(game, players), deck: cardsToDistribute }
+}
+
+const simulateGame = (
+  gamePublicState: GameModel.GamePublicState,
+  playerPublicState: PlayerPublicState,
+  options: Options,
+) => {
+  const game = createGameForSimulation(Deck.shuffle)(gamePublicState, playerPublicState)
+
+  const tree = MCTS.createTree(config)(game)
   const { node } = MCTS.findBestNode(tree, options.maxIterations)
 
-  return node.move
+  return node.move as MoveModel.Move
+}
+
+export const findBestMove = (
+  gamePublicState: GameModel.GamePublicState,
+  playerPublicState: PlayerPublicState,
+  options: Options = defaultOptions,
+): MoveModel.Move => {
+  const moves = availableMovesForPlayer(gamePublicState, playerPublicState)
+
+  const bm = moves.length === 1 ? moves[0] : simulateGame(gamePublicState, playerPublicState, options)
+
+  // console.log("BEST MOVE=====>\n", Card.toSymbol((bm as any).card))
+
+  return bm
 }

@@ -77,7 +77,7 @@ export const buildComplement = (
   )
 
   // tslint:disable: no-bitwise
-  return R.flatten(
+  const complement =  R.flatten(
     R.keys(revertedSuitMasks).map(suit => {
       const mask = revertedSuitMasks[suit]
       const values = R.range(minFaceValue, maxFaceValue + 1)
@@ -86,4 +86,6 @@ export const buildComplement = (
       return values.map(v => Card.create(suit, v!))
     }),
   )
+
+  return complement
 }

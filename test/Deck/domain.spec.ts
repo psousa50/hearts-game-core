@@ -27,10 +27,16 @@ it("distribute cards", () => {
 })
 
 describe("buildComplement", () => {
-  it("on a group of cards", () => {
+  it("on an 8 cards deck", () => {
     const cards = Card.fromList("2C 3H 2S")
 
     expect(Deck.buildComplement(cards, 2, 3)).toEqual(expect.arrayContaining(Card.fromList("3C 2H 3S 2D 3D")))
+  })
+
+  it("on an 12 cards deck", () => {
+    const cards = Card.fromList("2C 3C 4C 2S 3S 4S 3H 3D")
+
+    expect(Deck.buildComplement(cards, 2, 4)).toEqual(expect.arrayContaining(Card.fromList("2H 4H 2D 4D")))
   })
 
   it("for an empty list of cards", () => {

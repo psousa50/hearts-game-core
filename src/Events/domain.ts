@@ -8,6 +8,7 @@ const createPlayerEventBase = (
   {
     currentPlayerIndex,
     currentTrick,
+    deck,
     heartsBroken,
     lastTrick,
     playersCount,
@@ -19,6 +20,7 @@ const createPlayerEventBase = (
   gameState: {
     currentPlayerIndex,
     currentTrick,
+    deckInfo: deck,
     heartsBroken,
     lastTrick,
     playersCount,

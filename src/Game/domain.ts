@@ -9,7 +9,7 @@ import { Move, MoveType } from "../Moves/model"
 import * as Player from "../Players/domain"
 import * as PlayerModel from "../Players/model"
 import * as Trick from "../Tricks/domain"
-import { actionErrorOf, actionOf, ask, GameAction } from "../utils/actions"
+import { actionErrorOf, actionOf, ask, GameAction, GameResult } from "../utils/actions"
 import { Game, GameErrorType, GamePublicState, GameStage } from "./model"
 
 const nextPlayer = (game: Game) => (game.currentPlayerIndex + 1) % game.players.length
@@ -25,13 +25,13 @@ const twoOfClubs = Card.create(CardModel.Suit.Clubs, 2)
 
 export const findWinningTrickPlayerIndex = (game: Game) => {
   const firstCard = Trick.firstCard(game.currentTrick)
-  const sameSuit = Trick.cards(game.currentTrick).filter(c => c.suit === firstCard.suit)
+  const sameSuit = game.currentTrick.cards.filter(c => c.suit === firstCard.suit)
   const highestCard = R.reduce(
     R.max,
     0,
     sameSuit.map(c => c.faceValue),
   )
-  const i = Trick.cards(game.currentTrick).findIndex(c => c.faceValue === highestCard && c.suit === firstCard.suit)
+  const i = game.currentTrick.cards.findIndex(c => c.faceValue === highestCard && c.suit === firstCard.suit)
   return (i + game.currentPlayerIndex) % game.players.length
 }
 
@@ -50,7 +50,7 @@ const sendPlayToCurrentPlayerIfAuto: GameAction = game =>
     chain(({ config }) => (config.auto ? nextPlay(game) : actionOf(game))),
   )
 
-export const create = (players: PlayerModel.Player[]) =>
+export const create = (players: PlayerModel.Player[]): GameResult =>
   pipe(
     ask(),
     chain(({ dealer }) => {
@@ -59,7 +59,7 @@ export const create = (players: PlayerModel.Player[]) =>
         currentPlayerIndex: 0,
         currentTrick: Trick.createTrick(),
         deck,
-        deckSize: deck.cards.length,
+        deckInfo: deck,
         heartsBroken: false,
         lastTrick: Trick.createTrick(),
         players: [],
@@ -94,12 +94,8 @@ export const getCurrentPlayer = (game: Game) => game.players[game.currentPlayerI
 export const getPlayerIndex = (game: Game, playerId: PlayerModel.PlayerId) =>
   game.players.findIndex(p => p.id === playerId)
 
-export const hasPlayed = (game: Game, playerIndex: number) => {
-  const { currentPlayerIndex, currentTrick, playersCount } = game
-  const current =
-    currentPlayerIndex < currentTrick.firstPlayerIndex ? currentPlayerIndex + playersCount : currentPlayerIndex
-  return playerIndex >= currentTrick.firstPlayerIndex && playerIndex < current
-}
+export const hasPlayed = (game: Game, playerIndex: number) =>
+  (playerIndex - game.currentTrick.firstPlayerIndex + 4) % 4 < game.currentTrick.cards.length
 
 export const start: GameAction = game =>
   pipe(

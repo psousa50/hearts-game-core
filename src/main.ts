@@ -33,7 +33,7 @@ export const playerEventDispatcher = (playerId: PlayerId, event: PlayerEvent) =>
       } else {
         console.log("NO VALID MOVE\n")
         console.log("P=====>\n", JSON.stringify(event.playerState, null, 2))
-        console.log("=====>\n", JSON.stringify(event.gameState, null, 2))
+        console.log("G=====>\n", JSON.stringify(event.gameState, null, 2))
         throw new Error("NO VALID MOVE")
       }
       break
