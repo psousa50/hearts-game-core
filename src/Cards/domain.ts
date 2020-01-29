@@ -30,4 +30,4 @@ export const fromSymbol = (symbol: string) => {
 
 export const toList = (cards: Card[]) => cards.map(toSymbol).join(" ")
 
-export const fromList = (list: string) => (list.length === 0 ? [] : list.split(" ").map(fromSymbol))
+export const fromList = (list: string): Card[] => (list.length === 0 ? [] : list.split(" ").map(fromSymbol))

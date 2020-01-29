@@ -1,6 +1,7 @@
 import { pipe } from "fp-ts/lib/pipeable"
 import { chain, getOrElse } from "fp-ts/lib/ReaderEither"
 import * as R from "ramda"
+import * as Card from "../Cards/domain"
 import * as CardModel from "../Cards/model"
 import * as Deck from "../Deck/domain"
 import * as DeckModel from "../Deck/model"
@@ -60,7 +61,9 @@ const calcNodeValue = (game: GameModel.Game, { playerIndex }: GameInfo) =>
 const availableMoves = (game: GameModel.Game) => {
   const player = Game.getCurrentPlayer(game)
   const moves = player.hand.map(Move.createCardMove)
-  return moves.filter(Game.isValidMove(game, player))
+  const valid = moves.filter(Game.isValidMove(game, player))
+
+  return valid
 }
 
 const availableMovesForPlayer = (game: GameModel.GamePublicState, player: PlayerPublicState) => {
@@ -69,16 +72,19 @@ const availableMovesForPlayer = (game: GameModel.GamePublicState, player: Player
 }
 
 const isFinal = (game: GameModel.Game) =>
-  game.players.reduce((totalCards, player) => totalCards + player.hand.length, 0) === 0
+  game.players.reduce((totalCardsInHands, player) => totalCardsInHands + player.hand.length, 0) === 0
 
 const nextMove = (game: GameModel.Game) => randomElement(availableMoves(game))
 
-const nextState = (game: GameModel.Game, move: MoveModel.Move) =>
-  pipe(
+const nextState = (game: GameModel.Game, move: MoveModel.Move) => {
+  return pipe(
     actionOf(game),
     chain(Game.played(Game.getCurrentPlayer(game).id, move)),
-    getOrElse(() => () => game),
+    getOrElse(e => {
+      throw e
+    }),
   )(environment)
+}
 
 const strategy: MCTS.Strategy<GameModel.Game, MoveModel.Move> = {
   availableMoves,
@@ -107,30 +113,6 @@ export const createGameForSimulation = (shuffle: (deck: DeckModel.Deck) => DeckM
   const deck = Deck.buildComplement(cardsOut, deckInfo.minFaceValue, deckInfo.maxFaceValue)
   const cardsToDistribute = shuffle(Deck.fromCards(deck))
 
-  // console.log(
-  //   "CO =====>\n",
-  //   "TRICKS", Card.toList(R.flatten(gamePublicState.tricks.map(t => t.cards))),
-  //   R.flatten(gamePublicState.tricks.map(t => t.cards)).length,
-  //   "\n",
-  //   "TRICK", Card.toList(gamePublicState.currentTrick.cards),
-  //   "\n",
-  //   "HAND", Card.toList(playerPublicState.hand),
-  //   "\n",
-  //   "CO", Card.toList(cardsOut),
-  //   cardsOut.length, "\n",
-  //   "DIST", Card.toList(cardsToDistribute.cards),
-  //   cardsToDistribute.cards.length,
-  // )
-
-  // console.log(
-  //   "FIND=====>\n",
-  //   Card.toList(gamePublicState.currentTrick.cards),
-  //   gamePublicState.currentTrick.firstPlayerIndex,
-  //   gamePublicState.currentPlayerIndex,
-  //   gamePublicState.trickCounter,
-  //   R.flatten(gamePublicState.tricks.map(t => t.cards)).length,
-  // )
-
   const cardsCountPerPlayer = (deckInfo.size - trickCounter * playersCount) / playersCount
 
   const handsSlice = R.range(0, 4).reduce(
@@ -158,14 +140,6 @@ export const createGameForSimulation = (shuffle: (deck: DeckModel.Deck) => DeckM
       : Player.create(`id${i}`, `PlayerX ${i}`, "", handsSlice.hands[i]),
   )
 
-  // console.log("0 =====>\n", Card.toList(players[0].hand), players[0].hand.length)
-  // console.log("1 =====>\n", Card.toList(players[1].hand), players[1].hand.length)
-  // console.log("2 =====>\n", Card.toList(players[2].hand), players[2].hand.length)
-  // console.log("3 =====>\n", Card.toList(players[3].hand), players[3].hand.length)
-
-  // console.log("currentTrick=====>\n", game.currentTrick)
-  // console.log("currentPlayerIndex=====>\n", game.currentPlayerIndex)
-
   return { ...Game.setPlayers(game, players), deck: cardsToDistribute }
 }
 
@@ -175,6 +149,8 @@ const simulateGame = (
   options: Options,
 ) => {
   const game = createGameForSimulation(Deck.shuffle)(gamePublicState, playerPublicState)
+
+  // lj("GAME", game)
 
   const tree = MCTS.createTree(config)(game, { playerIndex: gamePublicState.currentPlayerIndex })
   const { node } = MCTS.findBestNode(tree, options.maxIterations)

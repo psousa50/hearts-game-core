@@ -1,14 +1,17 @@
 import * as R from "ramda"
 import { createGameForSimulation } from "../../src/AI/mcts"
+import * as mcts from "../../src/AI/mcts"
 import * as Card from "../../src/Cards/domain"
+import * as CardModel from "../../src/Cards/model"
+import { maxFaceValue } from "../../src/Cards/model"
 import * as Deck from "../../src/Deck/domain"
+import { GamePublicState, GameStage } from "../../src/Game/model"
+import { MoveType } from "../../src/Moves/model"
+import * as Player from "../../src/Players/domain"
 import * as Trick from "../../src/Tricks/domain"
+import * as TrickModel from "../../src/Tricks/model"
 
-// 2C 2S 2D 2H
-// 3C 3S 3D 3H
-// 4C 4S 4D 4H
-
-const sortList = (cardList: string) => Card.toList(R.sort(Card.order, Card.fromList(cardList)))
+// const sortList = (cardList: string) => Card.toList(R.sort(Card.order, Card.fromList(cardList)))
 
 describe("createGameForSimulation", () => {
   it("create a game with random hands for the other players", () => {
@@ -54,10 +57,8 @@ describe("createGameForSimulation", () => {
     expect(Card.toList(R.sort(Card.order, game.players[3].hand))).toEqual("QS KS AS")
   })
 
-  it.only("create a game with random hands for the other players", () => {
-    const tricksCards = Card.fromList(
-      "2C KC 5C 8C JD 10D 6D QD 9D 7D 2D QC",
-    )
+  it("create a game with random hands for the other players", () => {
+    const tricksCards = Card.fromList("2C KC 5C 8C JD 10D 6D QD 9D 7D 2D QC")
     const tricks = [
       { cards: tricksCards.slice(0, 4) },
       { cards: tricksCards.slice(4, 8) },
@@ -89,5 +90,53 @@ describe("createGameForSimulation", () => {
     expect(Card.toList(R.sort(Card.order, game.players[1].hand))).toEqual("4C 6C 7C 9C JC 3D 4D 5D 8D KD")
     expect(Card.toList(R.sort(Card.order, game.players[2].hand))).toEqual("2S 4S 5S 7S 8S 9S 10S QS KS AS")
     expect(Card.toList(R.sort(Card.order, game.players[3].hand))).toEqual("2H 3H 7H KH 10C AC AD 3S 6S JS")
+  })
+})
+
+describe("findBestMove", () => {
+  const p0 = Player.create("p0", "Player 0")
+  const p1 = Player.create("p1", "Player 1")
+  const p2 = Player.create("p2", "Player 2")
+  const p3 = Player.create("p3", "Player 3")
+  const players = [p0, p1, p2, p3]
+
+  const buildGame = (currentTrick: TrickModel.Trick, playerHand: CardModel.Hand) => {
+    const gamePublicState = {
+      currentPlayerIndex: 1,
+      currentTrick,
+      deckInfo: {
+        maxFaceValue: 14,
+        minFaceValue: 2,
+        size: 52,
+      },
+      heartsBroken: false,
+      lastTrick: Trick.createTrick(),
+      players,
+      playersCount: 4,
+      stage: GameStage.Playing,
+      trickCounter: 0,
+      tricks: [],
+    }
+
+    const playerPublicState = {
+      ...p1,
+      hand: playerHand,
+      tricks: [],
+      type: "",
+    }
+
+    return {gamePublicState, playerPublicState}
+  }
+
+  it("get rid of QS if possible", () => {
+    const currentTrick = Trick.createTrick(Card.fromList("2C"))
+    const playerHand = Card.fromList("3D 4D 5D 6D 7D 8D 2S 3S 4S 5S QS KS AS")
+
+    const {gamePublicState, playerPublicState} = buildGame(currentTrick, playerHand)
+
+    const bestMove = mcts.findBestMove(gamePublicState, playerPublicState, { maxIterations: 500 })
+    const bestCard = (bestMove as any).card
+
+    expect(Card.toSymbol(bestCard)).toEqual("QS")
   })
 })
