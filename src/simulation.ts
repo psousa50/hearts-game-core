@@ -6,12 +6,11 @@ import { Environment } from "./Environment/model"
 import { PlayerEvent, PlayerEventType } from "./Events/model"
 import * as Game from "./Game/domain"
 import { GameStage } from "./Game/model"
-import { getEitherRight } from "./monte-carlo-tree-search/utils/fpts"
 import * as Move from "./Moves/domain"
 import * as MoveModels from "./Moves/model"
 import * as Player from "./Players/domain"
 import * as PlayerModel from "./Players/model"
-import { actionOf, GameAction } from "./utils/actions"
+import { actionOf, GameAction, getEitherRight } from "./utils/actions"
 
 enum PlayerType {
   Random = "Random",
@@ -40,10 +39,10 @@ const play: PlayFunctions = {
   [PlayerType.MCTS]: mctsMove,
 }
 
-const p0 = Player.create("p0", "Player 0", PlayerType.MCTS)
-const p1 = Player.create("p1", "Player 1", PlayerType.MCTS)
+const p0 = Player.create("p0", "Player 0", PlayerType.Random)
+const p1 = Player.create("p1", "Player 1", PlayerType.Random)
 const p2 = Player.create("p2", "Player 2", PlayerType.MCTS)
-const p3 = Player.create("p3", "Player 3", PlayerType.MCTS)
+const p3 = Player.create("p3", "Player 3", PlayerType.Random)
 const players = [p0, p1, p2, p3]
 
 const playerEventDispatcher = (_: PlayerModel.PlayerId, event: PlayerEvent) => {
@@ -78,7 +77,7 @@ const simulate = () => {
 }
 
 const many = () => {
-  const iterations = 1
+  const iterations = 50
   const totalScores = [0, 0, 0, 0]
 
   for (let index = 0; index < iterations; index++) {

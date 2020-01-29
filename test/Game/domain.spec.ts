@@ -29,28 +29,6 @@ type Event = {
 
 const twoOfClubs = Card.create(Suit.Clubs, 2)
 
-const defaultEventFor = ({ hand, id, name, tricks, type }: PlayerModels.Player) => ({
-  event: {
-    gameState: {
-      currentPlayerIndex: 0,
-      currentTrick: Trick.createTrick(),
-      heartsBroken: false,
-      lastTrick: Trick.createTrick(),
-      playersCount: 0,
-      trickCounter: 0,
-      tricks: [],
-    },
-    playerState: {
-      hand,
-      id,
-      name,
-      tricks,
-      type,
-    },
-  },
-  playerId: id,
-})
-
 const createDeck = (cards: any) =>
   ({
     cards,

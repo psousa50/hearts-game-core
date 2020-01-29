@@ -1,7 +1,6 @@
 import { pipe } from "fp-ts/lib/pipeable"
 import { chain, getOrElse } from "fp-ts/lib/ReaderEither"
 import * as R from "ramda"
-import * as Card from "../Cards/domain"
 import * as CardModel from "../Cards/model"
 import * as Deck from "../Deck/domain"
 import * as DeckModel from "../Deck/model"
@@ -11,12 +10,11 @@ import { PlayerEvent, PlayerEventType } from "../Events/model"
 import * as Game from "../Game/domain"
 import * as GameModel from "../Game/model"
 import * as MCTS from "../monte-carlo-tree-search/mcts"
-import { getEitherRight } from "../monte-carlo-tree-search/utils/fpts"
 import * as Move from "../Moves/domain"
 import * as MoveModel from "../Moves/model"
 import * as Player from "../Players/domain"
 import { PlayerId, PlayerPublicState } from "../Players/model"
-import { actionOf } from "../utils/actions"
+import { actionOf, getEitherRight } from "../utils/actions"
 import { randomElement } from "../utils/misc"
 
 interface Options {
@@ -53,7 +51,11 @@ const environment: Environment = buildEnvironment({
   playerEventDispatcher,
 })
 
-const calcNodeValue = (game: GameModel.Game) => 26 - Game.calcPlayerScore(game, game.players[0].id)
+interface GameInfo {
+  playerIndex: number
+}
+const calcNodeValue = (game: GameModel.Game, { playerIndex }: GameInfo) =>
+  26 - Game.calcPlayerScore(game, game.players[playerIndex].id)
 
 const availableMoves = (game: GameModel.Game) => {
   const player = Game.getCurrentPlayer(game)
@@ -98,15 +100,9 @@ export const createGameForSimulation = (shuffle: (deck: DeckModel.Deck) => DeckM
   const game = getEitherRight(Game.createFromPublicState(gamePublicState, playerPublicState, [])(environment))
   const { deckInfo, playersCount, trickCounter } = gamePublicState
 
-  const playedCards = [
-    ...R.flatten(gamePublicState.tricks.map(t => t.cards)),
-    ...gamePublicState.currentTrick.cards,
-  ]
+  const playedCards = [...R.flatten(gamePublicState.tricks.map(t => t.cards)), ...gamePublicState.currentTrick.cards]
 
-  const cardsOut = [
-    ...playedCards,
-    ...playerPublicState.hand,
-  ]
+  const cardsOut = [...playedCards, ...playerPublicState.hand]
 
   const deck = Deck.buildComplement(cardsOut, deckInfo.minFaceValue, deckInfo.maxFaceValue)
   const cardsToDistribute = shuffle(Deck.fromCards(deck))
@@ -180,7 +176,7 @@ const simulateGame = (
 ) => {
   const game = createGameForSimulation(Deck.shuffle)(gamePublicState, playerPublicState)
 
-  const tree = MCTS.createTree(config)(game)
+  const tree = MCTS.createTree(config)(game, { playerIndex: gamePublicState.currentPlayerIndex })
   const { node } = MCTS.findBestNode(tree, options.maxIterations)
 
   return node.move as MoveModel.Move
