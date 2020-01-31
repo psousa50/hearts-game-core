@@ -16,7 +16,7 @@ import * as MoveModel from "../Moves/model"
 import * as Player from "../Players/domain"
 import { PlayerId, PlayerPublicState } from "../Players/model"
 import { actionOf, getEitherRight } from "../utils/actions"
-import { randomElement } from "../utils/misc"
+import { lj, randomElement } from "../utils/misc"
 
 interface Options {
   maxIterations: number
@@ -55,8 +55,10 @@ const environment: Environment = buildEnvironment({
 interface GameInfo {
   playerIndex: number
 }
-const calcNodeValue = (game: GameModel.Game, { playerIndex }: GameInfo) =>
-  26 - Game.calcPlayerScore(game, game.players[playerIndex].id)
+const calcNodeValue = (game: GameModel.Game, { playerIndex }: GameInfo) => {
+  const score = Game.calcPlayerScore(game, game.players[playerIndex].id)
+  return (26 - score) / 26
+}
 
 const availableMoves = (game: GameModel.Game) => {
   const player = Game.getCurrentPlayer(game)
@@ -149,8 +151,6 @@ const simulateGame = (
   options: Options,
 ) => {
   const game = createGameForSimulation(Deck.shuffle)(gamePublicState, playerPublicState)
-
-  // lj("GAME", game)
 
   const tree = MCTS.createTree(config)(game, { playerIndex: gamePublicState.currentPlayerIndex })
   const { node } = MCTS.findBestNode(tree, options.maxIterations)

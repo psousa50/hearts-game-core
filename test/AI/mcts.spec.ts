@@ -3,51 +3,73 @@ import { createGameForSimulation } from "../../src/AI/mcts"
 import * as mcts from "../../src/AI/mcts"
 import * as Card from "../../src/Cards/domain"
 import * as CardModel from "../../src/Cards/model"
-import { maxFaceValue } from "../../src/Cards/model"
-import * as Deck from "../../src/Deck/domain"
-import { GamePublicState, GameStage } from "../../src/Game/model"
-import { MoveType } from "../../src/Moves/model"
+import { Dealer } from "../../src/dealer"
+import { GameStage } from "../../src/Game/model"
 import * as Player from "../../src/Players/domain"
 import * as Trick from "../../src/Tricks/domain"
 import * as TrickModel from "../../src/Tricks/model"
+import { lj } from "../../src/utils/misc"
 
-// const sortList = (cardList: string) => Card.toList(R.sort(Card.order, Card.fromList(cardList)))
+const allCards = Card.toList(Dealer.createDeck().cards)
+
+const removeCards = (cards: CardModel.Card[], toRemove: CardModel.Card[]) =>
+  cards.filter(c1 => toRemove.every(c2 => !Card.equals(c1, c2)))
+
+const buildTricks = (cards: CardModel.Card[], count: number) =>
+  R.range(0, Math.floor(cards.length / count)).reduce(
+    (acc, chunk) => [...acc, Trick.createTrick(cards.slice(chunk * count, (chunk + 1) * count))],
+    [] as TrickModel.Trick[],
+  )
+
+const p0 = Player.create("p0", "Player 0")
+const p1 = Player.create("p1", "Player 1")
+const p2 = Player.create("p2", "Player 2")
+const p3 = Player.create("p3", "Player 3")
+const players = [p0, p1, p2, p3]
+
+const buildGameState = (
+  currentTrick: TrickModel.Trick,
+  playerHand: CardModel.Hand,
+  currentPlayerIndex: number,
+  tricks: TrickModel.Trick[] = [],
+) => {
+  const gamePublicState = {
+    currentPlayerIndex,
+    currentTrick,
+    deckInfo: {
+      maxFaceValue: 14,
+      minFaceValue: 2,
+      size: 52,
+    },
+    heartsBroken: true,
+    lastTrick: Trick.createTrick(),
+    players,
+    playersCount: 4,
+    stage: GameStage.Playing,
+    trickCounter: tricks.length,
+    tricks,
+  }
+
+  const playerPublicState = {
+    ...p1,
+    hand: playerHand,
+    tricks: [],
+    type: "",
+  }
+
+  return { gamePublicState, playerPublicState }
+}
 
 describe("createGameForSimulation", () => {
   it("create a game with random hands for the other players", () => {
+    const currentTrick = Trick.createTrick(Card.fromList("3S 4S"), 2)
+    const playerHand = Card.fromList("QH KH AH 2S")
     const tricksCards = Card.fromList(
       "2C 3C 4C 5C 6C 7C 8C 9C 10C JC QC KC AC 2D 3D 4D 5D 6D 7D 8D 9D 10D JD QD KD AD 2H 3H 4H 5H 6H 7H 8H 9H 10H JH",
     )
-    const tricks = [
-      { cards: tricksCards.slice(0, 4) },
-      { cards: tricksCards.slice(4, 8) },
-      { cards: tricksCards.slice(8, 12) },
-      { cards: tricksCards.slice(12, 16) },
-      { cards: tricksCards.slice(16, 20) },
-      { cards: tricksCards.slice(20, 24) },
-      { cards: tricksCards.slice(24, 28) },
-      { cards: tricksCards.slice(28, 32) },
-      { cards: tricksCards.slice(32, 36) },
-    ]
+    const tricks = buildTricks(tricksCards, 4)
 
-    const gamePublicState = {
-      currentPlayerIndex: 0,
-      currentTrick: {
-        cards: Card.fromList("3S 4S"),
-        firstPlayerIndex: 2,
-      },
-      deckInfo: {
-        maxFaceValue: 14,
-        minFaceValue: 2,
-        size: 52,
-      },
-      playersCount: 4,
-      trickCounter: 9,
-      tricks,
-    } as any
-    const playerPublicState = {
-      hand: Card.fromList("QH KH AH 2S"),
-    } as any
+    const { gamePublicState, playerPublicState } = buildGameState(currentTrick, playerHand, 0, tricks)
 
     const game = createGameForSimulation(R.identity)(gamePublicState, playerPublicState)
 
@@ -58,31 +80,12 @@ describe("createGameForSimulation", () => {
   })
 
   it("create a game with random hands for the other players", () => {
+    const currentTrick = Trick.createTrick(Card.fromList(""))
+    const playerHand = Card.fromList("2H 3H 7H KH 10C AC AD 3S 6S JS")
     const tricksCards = Card.fromList("2C KC 5C 8C JD 10D 6D QD 9D 7D 2D QC")
-    const tricks = [
-      { cards: tricksCards.slice(0, 4) },
-      { cards: tricksCards.slice(4, 8) },
-      { cards: tricksCards.slice(8, 12) },
-    ]
+    const tricks = buildTricks(tricksCards, 4)
 
-    const gamePublicState = {
-      currentPlayerIndex: 3,
-      currentTrick: {
-        cards: Card.fromList(""),
-        firstPlayerIndex: 0,
-      },
-      deckInfo: {
-        maxFaceValue: 14,
-        minFaceValue: 2,
-        size: 52,
-      },
-      playersCount: 4,
-      trickCounter: 3,
-      tricks,
-    } as any
-    const playerPublicState = {
-      hand: Card.fromList("2H 3H 7H KH 10C AC AD 3S 6S JS"),
-    } as any
+    const { gamePublicState, playerPublicState } = buildGameState(currentTrick, playerHand, 3, tricks)
 
     const game = createGameForSimulation(R.identity)(gamePublicState, playerPublicState)
 
@@ -94,49 +97,31 @@ describe("createGameForSimulation", () => {
 })
 
 describe("findBestMove", () => {
-  const p0 = Player.create("p0", "Player 0")
-  const p1 = Player.create("p1", "Player 1")
-  const p2 = Player.create("p2", "Player 2")
-  const p3 = Player.create("p3", "Player 3")
-  const players = [p0, p1, p2, p3]
-
-  const buildGame = (currentTrick: TrickModel.Trick, playerHand: CardModel.Hand) => {
-    const gamePublicState = {
-      currentPlayerIndex: 1,
-      currentTrick,
-      deckInfo: {
-        maxFaceValue: 14,
-        minFaceValue: 2,
-        size: 52,
-      },
-      heartsBroken: false,
-      lastTrick: Trick.createTrick(),
-      players,
-      playersCount: 4,
-      stage: GameStage.Playing,
-      trickCounter: 0,
-      tricks: [],
-    }
-
-    const playerPublicState = {
-      ...p1,
-      hand: playerHand,
-      tricks: [],
-      type: "",
-    }
-
-    return {gamePublicState, playerPublicState}
-  }
-
   it("get rid of QS if possible", () => {
     const currentTrick = Trick.createTrick(Card.fromList("2C"))
     const playerHand = Card.fromList("3D 4D 5D 6D 7D 8D 2S 3S 4S 5S QS KS AS")
 
-    const {gamePublicState, playerPublicState} = buildGame(currentTrick, playerHand)
+    const { gamePublicState, playerPublicState } = buildGameState(currentTrick, playerHand, 1)
 
     const bestMove = mcts.findBestMove(gamePublicState, playerPublicState, { maxIterations: 500 })
     const bestCard = (bestMove as any).card
 
     expect(Card.toSymbol(bestCard)).toEqual("QS")
+  })
+
+  it("take some points to prevent higher losses", () => {
+    const currentTrick = Trick.createTrick(Card.fromList("2S 3S 6H"), 1)
+    const playerHand = Card.fromList("2H AH")
+    const tricks = buildTricks(
+      removeCards(Dealer.createDeck().cards, [...currentTrick.cards, ...playerHand, ...Card.fromList("3H 4H 5H")]),
+      4,
+    )
+
+    const { gamePublicState, playerPublicState } = buildGameState(currentTrick, playerHand, 0, tricks)
+
+    const bestMove = mcts.findBestMove(gamePublicState, playerPublicState, { maxIterations: 2 })
+    const bestCard = (bestMove as any).card
+
+    expect(Card.toSymbol(bestCard)).toBe("AH")
   })
 })

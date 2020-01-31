@@ -2,9 +2,9 @@ import { score as cardScore } from "../Cards/domain"
 import { Card } from "../Cards/model"
 import { Trick } from "./model"
 
-export const createTrick = (cards: Card[] = []): Trick => ({
+export const createTrick = (cards: Card[] = [], firstPlayerIndex: number = 0): Trick => ({
   cards,
-  firstPlayerIndex: 0,
+  firstPlayerIndex,
 })
 
 export const isEmpty = (trick: Trick) => trick.cards.length === 0

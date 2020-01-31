@@ -31,9 +31,6 @@ export const playerEventDispatcher = (playerId: PlayerId, event: PlayerEvent) =>
         const move = Move.createCardMove(validCards[0])
         gameEvent = Events.createGameEventPlayerPlayed(playerId, move)
       } else {
-        console.log("NO VALID MOVE\n")
-        console.log("P=====>\n", JSON.stringify(event.playerState, null, 2))
-        console.log("G=====>\n", JSON.stringify(event.gameState, null, 2))
         throw new Error("NO VALID MOVE")
       }
       break
