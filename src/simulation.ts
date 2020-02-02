@@ -41,8 +41,8 @@ const play: PlayFunctions = {
 
 const p0 = Player.create("p0", "Player 0", PlayerType.Random)
 const p1 = Player.create("p1", "Player 1", PlayerType.Random)
-const p2 = Player.create("p2", "Player 2", PlayerType.MCTS)
-const p3 = Player.create("p3", "Player 3", PlayerType.Random)
+const p2 = Player.create("p2", "Player 2", PlayerType.Random)
+const p3 = Player.create("p3", "Player 3", PlayerType.MCTS)
 const players = [p0, p1, p2, p3]
 
 const playerEventDispatcher = (_: PlayerModel.PlayerId, event: PlayerEvent) => {
@@ -77,7 +77,7 @@ const simulate = () => {
 }
 
 const many = () => {
-  const iterations = 50
+  const iterations = 10
   const totalScores = [0, 0, 0, 0]
 
   for (let index = 0; index < iterations; index++) {

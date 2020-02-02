@@ -1,7 +1,6 @@
 import { pipe } from "fp-ts/lib/pipeable"
 import { chain, getOrElse } from "fp-ts/lib/ReaderEither"
 import * as R from "ramda"
-import * as Card from "../Cards/domain"
 import * as CardModel from "../Cards/model"
 import * as Deck from "../Deck/domain"
 import * as DeckModel from "../Deck/model"
@@ -14,16 +13,12 @@ import * as MCTS from "../monte-carlo-tree-search/mcts"
 import * as Move from "../Moves/domain"
 import * as MoveModel from "../Moves/model"
 import * as Player from "../Players/domain"
-import { PlayerId, PlayerPublicState } from "../Players/model"
+import * as PlayerModel from "../Players/model"
 import { actionOf, getEitherRight } from "../utils/actions"
-import { lj, randomElement } from "../utils/misc"
-
-interface Options {
-  maxIterations: number
-}
+import { randomElement } from "../utils/misc"
 
 const defaultOptions = {
-  maxIterations: 500,
+  timeLimitMs: 500,
 }
 
 const randomMove = (event: PlayerEvent) => {
@@ -36,7 +31,7 @@ const randomMove = (event: PlayerEvent) => {
     : undefined
 }
 
-const playerEventDispatcher = (_: PlayerId, event: PlayerEvent) => {
+const playerEventDispatcher = (_: PlayerModel.PlayerId, event: PlayerEvent) => {
   switch (event.type) {
     case PlayerEventType.Play:
       return randomMove(event)
@@ -52,13 +47,13 @@ const environment: Environment = buildEnvironment({
   playerEventDispatcher,
 })
 
-interface GameInfo {
-  playerIndex: number
-}
-const calcNodeValue = (game: GameModel.Game, { playerIndex }: GameInfo) => {
-  const score = Game.calcPlayerScore(game, game.players[playerIndex].id)
+const calcScore = (game: GameModel.Game) => (player: PlayerModel.Player) => {
+  const score = Game.calcPlayerScore(game, player.id)
   return (26 - score) / 26
 }
+
+const calcScores = (game: GameModel.Game) =>
+  game.players.map(calcScore(game))
 
 const availableMoves = (game: GameModel.Game) => {
   const player = Game.getCurrentPlayer(game)
@@ -68,7 +63,7 @@ const availableMoves = (game: GameModel.Game) => {
   return valid
 }
 
-const availableMovesForPlayer = (game: GameModel.GamePublicState, player: PlayerPublicState) => {
+const availableMovesForPlayer = (game: GameModel.GamePublicState, player: PlayerModel.PlayerPublicState) => {
   const moves = player.hand.map(Move.createCardMove)
   return moves.filter(Game.isValidMove(game, player))
 }
@@ -88,22 +83,24 @@ const nextState = (game: GameModel.Game, move: MoveModel.Move) => {
   )(environment)
 }
 
-const strategy: MCTS.Strategy<GameModel.Game, MoveModel.Move> = {
+const gameLogic: MCTS.GameLogic<GameModel.Game, MoveModel.Move> = {
   availableMoves,
-  calcValue: calcNodeValue,
+  calcScores,
+  currentPlayerIndex: state => state.currentPlayerIndex,
   isFinal,
-  nextMove,
   nextState,
+  playersCount: state => state.playersCount,
 }
 
 const config: MCTS.Config<GameModel.Game, MoveModel.Move> = {
   calcUcb: MCTS.defaultUcbFormula(),
-  strategy,
+  gameLogic,
+  nextMove,
 }
 
 export const createGameForSimulation = (shuffle: (deck: DeckModel.Deck) => DeckModel.Deck) => (
   gamePublicState: GameModel.GamePublicState,
-  playerPublicState: PlayerPublicState,
+  playerPublicState: PlayerModel.PlayerPublicState,
 ) => {
   const game = getEitherRight(Game.createFromPublicState(gamePublicState, playerPublicState, [])(environment))
   const { deckInfo, playersCount, trickCounter } = gamePublicState
@@ -147,21 +144,21 @@ export const createGameForSimulation = (shuffle: (deck: DeckModel.Deck) => DeckM
 
 const simulateGame = (
   gamePublicState: GameModel.GamePublicState,
-  playerPublicState: PlayerPublicState,
-  options: Options,
+  playerPublicState: PlayerModel.PlayerPublicState,
+  options: MCTS.Options,
 ) => {
   const game = createGameForSimulation(Deck.shuffle)(gamePublicState, playerPublicState)
 
-  const tree = MCTS.createTree(config)(game, { playerIndex: gamePublicState.currentPlayerIndex })
-  const { node } = MCTS.findBestNode(tree, options.maxIterations)
+  const tree = MCTS.createTree(config)(game, gamePublicState.currentPlayerIndex)
+  const { node } = MCTS.findBestNode(tree, options)
 
   return node.move as MoveModel.Move
 }
 
 export const findBestMove = (
   gamePublicState: GameModel.GamePublicState,
-  playerPublicState: PlayerPublicState,
-  options: Options = defaultOptions,
+  playerPublicState: PlayerModel.PlayerPublicState,
+  options: MCTS.Options = defaultOptions,
 ): MoveModel.Move => {
   const moves = availableMovesForPlayer(gamePublicState, playerPublicState)
 
