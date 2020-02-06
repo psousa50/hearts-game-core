@@ -114,7 +114,7 @@ export const createGameForSimulation = (shuffle: (deck: DeckModel.Deck) => DeckM
 
   const cardsCountPerPlayer = (deckInfo.size - trickCounter * playersCount) / playersCount
 
-  const handsSlice = R.range(0, 4).reduce(
+  const handsSlice = R.range(0, game.playersCount).reduce(
     (acc, playerIndex) => {
       if (playerIndex === gamePublicState.currentPlayerIndex) {
         return {
@@ -150,9 +150,10 @@ const simulateGame = (
   const game = createGameForSimulation(Deck.shuffle)(gamePublicState, playerPublicState)
 
   const tree = MCTS.createTree(config)(game, gamePublicState.currentPlayerIndex)
-  const { node } = MCTS.findBestNode(tree, options)
 
-  return node.move as MoveModel.Move
+  const { bestNode } = MCTS.findBestNode(tree, options)
+
+  return bestNode.move as MoveModel.Move
 }
 
 export const findBestMove = (
@@ -160,6 +161,7 @@ export const findBestMove = (
   playerPublicState: PlayerModel.PlayerPublicState,
   options: MCTS.Options = defaultOptions,
 ): MoveModel.Move => {
+
   const moves = availableMovesForPlayer(gamePublicState, playerPublicState)
 
   const bm = moves.length === 1 ? moves[0] : simulateGame(gamePublicState, playerPublicState, options)

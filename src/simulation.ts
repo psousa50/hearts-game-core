@@ -27,7 +27,7 @@ const randomMove = (event: PlayerEvent) => {
     : undefined
 }
 
-const mctsMove = (event: PlayerEvent) => mcts.findBestMove(event.gameState, event.playerState, { maxIterations: 500})
+const mctsMove = (event: PlayerEvent) => mcts.findBestMove(event.gameState, event.playerState, { timeLimitMs: 500 })
 
 type PlayFunction = (event: PlayerEvent) => MoveModels.Move | undefined
 type PlayFunctions = {
@@ -62,14 +62,12 @@ const environment: Environment = buildEnvironment({
 })
 
 const gameLoop: GameAction = game =>
-  game.trickCounter > 15 || game.stage === GameStage.Ended
+  game.stage === GameStage.Ended
     ? actionOf(game)
     : pipe(actionOf(game), chain(Game.nextPlay), chain(gameLoop))
 
 const simulate = () => {
   const game = getEitherRight(pipe(Game.create(players), chain(Game.start), chain(gameLoop))(environment))
-
-  // lj("T", game.players)
 
   const scores = game.players.map(p => Game.calcPlayerScore(game, p.id))
 
@@ -77,7 +75,7 @@ const simulate = () => {
 }
 
 const many = () => {
-  const iterations = 10
+  const iterations = 1
   const totalScores = [0, 0, 0, 0]
 
   for (let index = 0; index < iterations; index++) {
