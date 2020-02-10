@@ -83,19 +83,19 @@ const nextState = (game: GameModel.Game, move: MoveModel.Move) => {
   )(environment)
 }
 
-const gameLogic: MCTS.GameLogic<GameModel.Game, MoveModel.Move> = {
+const gameRules: MCTS.GameRules<GameModel.Game, MoveModel.Move> = {
   availableMoves,
-  calcScores,
   currentPlayerIndex: state => state.currentPlayerIndex,
   isFinal,
+  nextMove,
   nextState,
   playersCount: state => state.playersCount,
 }
 
 const config: MCTS.Config<GameModel.Game, MoveModel.Move> = {
+  calcScores,
   calcUcb: MCTS.defaultUcbFormula(),
-  gameLogic,
-  nextMove,
+  gameRules,
 }
 
 export const createGameForSimulation = (shuffle: (deck: DeckModel.Deck) => DeckModel.Deck) => (
