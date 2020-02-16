@@ -94,7 +94,7 @@ const gameRules: MCTS.GameRules<GameModel.Game, MoveModel.Move> = {
 
 const config: MCTS.Config<GameModel.Game, MoveModel.Move> = {
   calcScores,
-  calcUcb: MCTS.defaultUcbFormula(),
+  calcUct: MCTS.defaultUctFormula(),
   gameRules,
 }
 

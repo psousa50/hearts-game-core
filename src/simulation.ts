@@ -75,7 +75,7 @@ const simulate = () => {
 }
 
 const many = () => {
-  const iterations = 1
+  const iterations = 10
   const totalScores = [0, 0, 0, 0]
 
   for (let index = 0; index < iterations; index++) {
