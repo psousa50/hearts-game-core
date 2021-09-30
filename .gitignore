@@ -8,8 +8,7 @@ monte-carlo-tree-search
 # Temporary builds
 .awcache/
 cache/
-tmp/
-ts-node/
+tmp//
 ts-node-*/
 
 # Logs
