@@ -40,7 +40,7 @@ const createDeckWith = (numberOfCards: number) => Deck.create(0, numberOfCards /
 const getRight = <L, A>(fa: Either<L, A>) =>
   pipe(
     fa,
-    getOrElse<L, A>(e => {
+    getOrElse<L, A>((e) => {
       throw new Error(`Should be Right => ${JSON.stringify(e)}`)
     }),
   )
@@ -48,7 +48,7 @@ const getRight = <L, A>(fa: Either<L, A>) =>
 const getLeft = <L, A>(fa: Either<L, A>) =>
   pipe(
     fa,
-    fold(identity, r => {
+    fold(identity, (r) => {
       throw new Error(`Should be Left => ${JSON.stringify(r)}`)
     }),
   )
@@ -129,7 +129,7 @@ describe("game", () => {
 
       pipe(Game.create(twoPlayers), chain(Game.start))(environment)
 
-      const startedEvents = events.filter(e => e.event.type === PlayerEventType.GameStarted)
+      const startedEvents = events.filter((e) => e.event.type === PlayerEventType.GameStarted)
       expect(startedEvents[0].playerId).toBe(firstPlayer.id)
       expect(startedEvents[1].playerId).toBe(secondPlayer.id)
     })
@@ -144,11 +144,11 @@ describe("game", () => {
       })
 
       const game = getRight(pipe(Game.create(twoPlayers), chain(Game.start))(environment))
-      const playerWith2OfClubs = game.players.find(p => p.hand.some(c => Card.equals(c, twoOfClubs)))!
+      const playerWith2OfClubs = game.players.find((p) => p.hand.some((c) => Card.equals(c, twoOfClubs)))!
       pipe(actionOf(game), chain(Game.nextPlay))(environment)
 
       const playEvents = events.filter(
-        e => e.event.type === PlayerEventType.Play && e.playerId === playerWith2OfClubs.id,
+        (e) => e.event.type === PlayerEventType.Play && e.playerId === playerWith2OfClubs.id,
       )
 
       expect(playEvents.length).toEqual(1)
@@ -184,7 +184,7 @@ describe("game", () => {
         const game = getRight(pipe(Game.create(twoPlayers), chain(Game.start), chain(Game.nextPlay))(getEnvironment()))
 
         const playedCard = game.currentTrick.cards[0]
-        expect(game.players[0].hand.find(c => Card.equals(c, playedCard))).toBeUndefined()
+        expect(game.players[0].hand.find((c) => Card.equals(c, playedCard))).toBeUndefined()
       })
 
       it("should add player card move to current trick", () => {
@@ -209,7 +209,7 @@ describe("game", () => {
         })
         const game = getRight(pipe(Game.create(twoPlayers), chain(Game.start), chain(Game.nextPlay))(environment))
 
-        const playerPlayedEvents = events.filter(e => e.event.type === PlayerEventType.PlayerPlayed)
+        const playerPlayedEvents = events.filter((e) => e.event.type === PlayerEventType.PlayerPlayed)
         expect(playerPlayedEvents[0].playerId).toBe(firstPlayer.id)
         expect(playerPlayedEvents[1].playerId).toBe(secondPlayer.id)
       })
@@ -232,7 +232,7 @@ describe("game", () => {
         })
         getRight(pipe(Game.create(twoPlayers), chain(Game.start), chain(Game.nextPlay))(environment))
 
-        const playEvents = events.filter(e => e.event.type === PlayerEventType.Play && e.playerId === firstPlayer.id)
+        const playEvents = events.filter((e) => e.event.type === PlayerEventType.Play && e.playerId === firstPlayer.id)
         expect(playEvents.length).toEqual(1)
       })
     })
@@ -286,7 +286,7 @@ describe("game", () => {
       it("calls 'TrickFinished' on every player", () => {
         const { events } = getTrickFinishedGame({ auto: true })
 
-        const trickFinishedEvents = events.filter(e => e.event.type === PlayerEventType.TrickFinished)
+        const trickFinishedEvents = events.filter((e) => e.event.type === PlayerEventType.TrickFinished)
         expect(trickFinishedEvents[0].playerId).toBe(firstPlayer.id)
         expect(trickFinishedEvents[1].playerId).toBe(secondPlayer.id)
       })
@@ -315,7 +315,9 @@ describe("game", () => {
       describe("calls 'Play' on the winning player", () => {
         it("if auto is true", () => {
           const { events } = getTrickFinishedGame({ auto: true })
-          const playEvents = events.filter(e => e.event.type === PlayerEventType.Play && e.playerId === winningPlayerId)
+          const playEvents = events.filter(
+            (e) => e.event.type === PlayerEventType.Play && e.playerId === winningPlayerId,
+          )
 
           expect(playEvents.length).toEqual(1)
         })
@@ -325,7 +327,7 @@ describe("game", () => {
 
           expect(
             events.find(
-              e =>
+              (e) =>
                 e.event.type === PlayerEventType.Play &&
                 e.playerId === winningPlayerId &&
                 e.event.gameState.trickCounter === 1,
@@ -336,7 +338,9 @@ describe("game", () => {
         it("when 'next' is called, if auto is false", () => {
           const { events } = getTrickFinishedGame({ auto: false })
 
-          const playEvents = events.filter(e => e.event.type === PlayerEventType.Play && e.playerId === winningPlayerId)
+          const playEvents = events.filter(
+            (e) => e.event.type === PlayerEventType.Play && e.playerId === winningPlayerId,
+          )
 
           expect(playEvents.length).toEqual(1)
         })
@@ -379,7 +383,7 @@ describe("game", () => {
       it("should call 'GameEnded' on every player", () => {
         const { events } = getFinishedGame()
 
-        const gameEndedEvents = events.filter(e => e.event.type === PlayerEventType.GameEnded)
+        const gameEndedEvents = events.filter((e) => e.event.type === PlayerEventType.GameEnded)
         expect(gameEndedEvents[0].playerId).toBe(firstPlayer.id)
         expect(gameEndedEvents[1].playerId).toBe(secondPlayer.id)
       })
@@ -387,7 +391,7 @@ describe("game", () => {
       it("should not call 'Play' on any player", () => {
         const { events } = getFinishedGame()
 
-        expect(events.filter(e => e.event.type === PlayerEventType.Play).length).toBeLessThan(5)
+        expect(events.filter((e) => e.event.type === PlayerEventType.Play).length).toBeLessThan(5)
       })
     })
 
@@ -555,7 +559,7 @@ describe("game", () => {
         playersCount: 4,
       } as any
 
-      expect(Game.hasPlayed(game, 3)).toBeFalsy ()
+      expect(Game.hasPlayed(game, 3)).toBeFalsy()
     })
 
     it("didn't play yet if after current", () => {
