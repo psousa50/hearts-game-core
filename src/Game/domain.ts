@@ -264,7 +264,12 @@ const isValidCardMove = (
   const suitMustBeSameAsFirstCard = () =>
     !trickSuit || card.suit === trickSuit || playerState.hand.every((c) => c.suit !== trickSuit)
   const canPlayHeartsOnlyIfBroken = () =>
-    !Card.isHearts(card) || gameState.heartsBroken || playerState.hand.every((c) => c.suit === CardModel.Suit.Hearts)
+    !trickSuit ||
+    !Card.isHearts(card) ||
+    card.suit === trickSuit ||
+    playerState.hand.every((c) => c.suit !== trickSuit) ||
+    gameState.heartsBroken ||
+    playerState.hand.every((c) => c.suit === CardModel.Suit.Hearts)
 
   return firstCardMustBe2OfClubs() && suitMustBeSameAsFirstCard() && canPlayHeartsOnlyIfBroken()
 }

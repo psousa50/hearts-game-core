@@ -495,6 +495,19 @@ describe("game", () => {
 
         expect(Game.isValidMove(game, game.players[0])(validMove)).toBeTruthy()
       })
+
+      it("card is Hearts and hearts has not been drawn yet but it's not the first card", () => {
+        const game = {
+          currentTrick: { cards: [Card.create(Suit.Spades, 5)], firstPlayerIndex: 0 },
+          heartsBroken: false,
+          players: [{}, { hand: [Card.create(Suit.Hearts, 3), Card.create(Suit.Diamonds, 4)] }],
+          trickCounter: 1,
+        } as any
+
+        const validMove = Move.createCardMove(game.players[1].hand[0])
+
+        expect(Game.isValidMove(game, game.players[1])(validMove)).toBeTruthy()
+      })
     })
 
     describe("invalid if", () => {
@@ -510,11 +523,11 @@ describe("game", () => {
         expect(Game.isValidMove(game, game.players[0])(validMove)).toBeFalsy()
       })
 
-      it("first card is Hearts but hearts has not been drawn yet", () => {
+      it("first card is Hearts but hearts has not been drawn yet and player has different suits", () => {
         const game = {
           currentTrick: { cards: [], firstPlayerIndex: 0 },
           players: [{ hand: [Card.create(Suit.Hearts, 2), Card.create(Suit.Spades, 2)] }, {}],
-          trickCounter: 1,
+          trickCounter: 0,
         } as any
 
         const validMove = Move.createCardMove(game.players[0].hand[0])
